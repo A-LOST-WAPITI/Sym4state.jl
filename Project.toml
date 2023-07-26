@@ -3,5 +3,12 @@ uuid = "cd7f132b-9dd9-4a60-9028-a6299a42be40"
 authors = ["Guolin Wan <glwan@iphy.ac.cn> and contributors"]
 version = "1.0.0-DEV"
 
+[deps]
+CondaPkg = "992eb4ea-22a4-4c89-a5bb-47a3300528ab"
+InvertedIndices = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
 [compat]
 julia = "1.9"

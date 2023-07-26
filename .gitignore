@@ -4,3 +4,9 @@
 /Manifest.toml
 /docs/Manifest.toml
 /docs/build/
+
+## VSCODE
+.vscode
+
+## CondaPkg.jl
+.CondaPkg
