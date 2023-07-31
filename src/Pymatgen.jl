@@ -2,7 +2,7 @@ module Pymatgen
     using PythonCall
 
 
-    export py_Struc
+    export py_Struc, get_py_struc
 
 
     const py_Struc = PythonCall.pynew()
@@ -13,4 +13,7 @@ module Pymatgen
             pyimport("pymatgen.core").Structure
         )
     end
+
+
+    get_py_struc(filepath) = py_Struc.from_file(filepath)
 end

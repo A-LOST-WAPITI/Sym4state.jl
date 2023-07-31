@@ -1,9 +1,9 @@
 module Spglib
-    include("Types.jl")
-
-
     using PythonCall
-    using .Types
+    using ..Types
+
+
+    export get_sym_op_vec
 
 
     const py_spglib = PythonCall.pynew()

@@ -2,6 +2,7 @@ module Utils
     using InvertedIndices
     using LinearAlgebra
     using PythonCall
+    using ..Types
 
     
     export fourstate
@@ -61,9 +62,10 @@ module Utils
             spin_mat = mag_config_array[:, :, idx]
 
             struc = Struc(
+                idx,
                 lattice_mat,
-                num_vec,
-                pos_mat,
+                num_vec[mag_flag_vec],
+                pos_mat[:, mag_flag_vec],
                 spin_mat
             )
 

@@ -2,9 +2,11 @@ module Types
     using Base
     using StaticArrays
     using LinearAlgebra
+    using PeriodicTable
+    using Printf
 
 
-    export Struc, SymOp
+    export Struc, SymOp, FallbackList
 
 
     struct Atom
@@ -31,8 +33,27 @@ module Types
         return approx_flag
     end
 
+    function Base.show(io::IO, ::MIME"text/plain", atom::Atom)
+        function vec2str(x)
+            return "[" * join(
+                [@sprintf("%7.4f", item) for item in x],
+                " "
+            ) * "]"
+        end
+
+        println(
+            io,
+            "$(elements[atom.num].symbol)" *
+                " @ " * vec2str(atom.pos) *
+                " with spin " * vec2str(atom.spin)
+        )
+
+        return nothing
+    end
+    Base.show(io::IO, atom::Atom) = show(io, "text/plain", atom)
 
     struct Struc
+        uni_num::Int64
         lattice_mat::SMatrix
         inv_lattice_mat::SMatrix
         atom_count::Int64
@@ -41,6 +62,7 @@ module Types
         spin_mat::SMatrix
     end
     function Struc(
+        uni_num::Int64,
         lattice_mat::AbstractMatrix,
         num_vec::AbstractVector,
         pos_mat::AbstractMatrix,
@@ -60,6 +82,7 @@ module Types
         spin_mat = SMatrix{3, atom_count, Float64}(spin_mat)
 
         return Struc(
+            uni_num,
             lattice_mat,
             inv_lattice_mat,
             atom_count,
@@ -105,6 +128,38 @@ module Types
         return approx_flag
     end
 
+    function Base.show(io::IO, ::MIME"text/plain", struc::Struc)
+        function mat2str(x)
+            str = ""
+            for row in eachrow(x)
+                str *= join(
+                    [@sprintf("%10.4f", item) for item in row],
+                    " "
+                ) * "\n"
+            end
+
+            return str
+        end
+
+        println(io, "Structure Summary:")
+        ## Lattice matrix
+        print(
+            io,
+            "Lattice [a, b, c]\n" *
+                mat2str(struc.lattice_mat)
+        )
+        ## Atoms
+        println(
+            io,
+            "Atoms"
+        )
+        for atom in struc
+            print(io, "  ")
+            show(io, atom)
+        end
+    end
+    Base.show(io::IO, struc::Struc) = show(io, "text/plain", struc)
+
 
     struct SymOp
         rot_mat::SMatrix{3, 3, Float64}
@@ -136,6 +191,7 @@ module Types
         new_spin = struc.lattice_mat * new_frac_spin
 
         return Struc(
+            struc.uni_num,
             struc.lattice_mat,
             struc.inv_lattice_mat,
             struc.atom_count,
@@ -145,12 +201,56 @@ module Types
         )
     end
 
+    function Base.show(io::IO, ::MIME"text/plain", sym_op::SymOp)
+        function vec2str(x)
+            return "[" * join(
+                [@sprintf("%6.4f", item) for item in x],
+                ", "
+            ) * "]"
+        end
+        function mat2str(x)
+            str = ""
+            for row in eachrow(x)
+                str *= join(
+                    [@sprintf("%10.4f", item) for item in row],
+                    " "
+                ) * "\n"
+            end
+
+            return str
+        end
+
+        println(io, "Symmtry operation summary:")
+        ## Rotation matrix
+        proper = sym_op.proper > 0 ? "Proper" : "Improper"
+        println(
+            io,
+            "Rotation matrix ($(proper)):\n" *
+                mat2str(sym_op.rot_mat)
+        )
+        ## Translation vector
+        println(
+            io,
+            "Translation vector: " *
+                vec2str(sym_op.trans_vec)
+        )
+        ## Time reversal
+        time_rev = sym_op.time_rev > 0 ? "False" : "True"
+        println(
+            io,
+            "Time reversal: " * time_rev
+        )
+
+        return nothing
+    end
+    Base.show(io::IO, sym_op::SymOp) = show(io, "text/plain", sym_op)
+
 
     struct FallbackList
         len::Int64
-        tree::SVector
+        tree::MVector
     end
-    FallbackList(len::Int64) = FallbackList(len, @SVector zeros(Int64, len))
+    FallbackList(len::Int64) = FallbackList(len, @MVector zeros(Int64, len))
     function (fallback::FallbackList)(idx::Int64)
         @assert idx <= fallback.len
 
@@ -166,7 +266,11 @@ module Types
         @assert 0 < idx <= fallback.len
         @assert 0 < target_idx <= fallback.len
 
-        if iszero(fallback.tree[idx])
+        target_idx_now = fallback.tree[idx]
+        if iszero(target_idx_now)
+            fallback.tree[idx] = target_idx
+        else
+            target_idx = min(target_idx, target_idx_now)
             fallback.tree[idx] = target_idx
         end
     end

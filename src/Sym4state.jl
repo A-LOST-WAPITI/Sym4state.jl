@@ -3,13 +3,11 @@ module Sym4state
     include("Pymatgen.jl")
     include("Spglib.jl")
     include("Utils.jl")
+    include("Core.jl")
 
 
-    using .Types
-    using .Pymatgen
-    using .Spglib
-    using .Utils
+    using .ModCore
 
     
-    export SymOp, py_Struc
+    export sym4state
 end
