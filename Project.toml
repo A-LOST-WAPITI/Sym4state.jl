@@ -9,6 +9,7 @@ InvertedIndices = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 PeriodicTable = "7b2266bf-644c-5ea3-82d8-af4bbd25a884"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 

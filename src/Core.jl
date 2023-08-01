@@ -1,4 +1,5 @@
 module ModCore
+    using ProgressMeter
     using ..Pymatgen
     using ..Spglib
     using ..Utils
@@ -19,11 +20,11 @@ module ModCore
         #TODO: Check whether `target_idx_vec` is enough.
 
         spg_num, sym_op_vec = get_sym_op_vec(py_struc)
-        println(spg_num)
         struc_vec = fourstate(py_struc, mag_num_vec, target_idx_vec)
 
         unique_struc_vec = Struc[]
         fallback = FallbackList(36)
+        p = Progress(length(struc_vec) * length(sym_op_vec))
         for struc in struc_vec
             for sym_op in sym_op_vec
                 struc_after_op = sym_op * struc
@@ -37,11 +38,6 @@ module ModCore
                         struc_occur,
                         atol=atol
                     )
-                        println(
-                            struc_after_op.uni_num,
-                            "\t",
-                            struc_occur.uni_num
-                        )
                         occur_flag = true
                         fallback(
                             source_uni_num,
@@ -56,6 +52,8 @@ module ModCore
                         struc_after_op
                     )
                 end
+
+                next!(p)
             end
         end
 
