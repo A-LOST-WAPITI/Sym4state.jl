@@ -25,9 +25,14 @@ module Spglib
         py_sym_dict = py_spglib.get_symmetry_dataset(cell, symprec=symprec)
 
         spg_num = pyconvert(Int64, py_sym_dict["number"])
+        lattice_mat = permutedims(
+            pyconvert(Array{Float64}, py_lattice_mat),
+            (2, 1)
+        )
+        inv_lattive_mat = inv(lattice_mat)
         rot_array = permutedims(
             pyconvert(Array{Float64}, py_sym_dict["rotations"]),
-            (3, 2, 1)
+            (2, 3, 1)
         )
         trans_mat = permutedims(
             pyconvert(Array{Float64}, py_sym_dict["translations"]),
@@ -44,7 +49,9 @@ module Spglib
                 op = SymOp(
                     rot_mat,
                     trans_vec,
-                    time_rev
+                    time_rev,
+                    lattice_mat,
+                    inv_lattive_mat
                 )
 
                 push!(op_vec, op)

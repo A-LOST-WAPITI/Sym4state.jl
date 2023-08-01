@@ -37,7 +37,7 @@ module Types
         function vec2str(x)
             return "[" * join(
                 [@sprintf("%7.4f", item) for item in x],
-                " "
+                ", "
             ) * "]"
         end
 
@@ -55,7 +55,6 @@ module Types
     struct Struc
         uni_num::Int64
         lattice_mat::SMatrix
-        inv_lattice_mat::SMatrix
         atom_count::Int64
         num_vec::SVector
         pos_mat::SMatrix
@@ -73,18 +72,14 @@ module Types
         @assert size(pos_mat) == (3, atom_count)
         @assert size(spin_mat) == (3, atom_count)
 
-        inv_lattice_mat = inv(lattice_mat)
-
         num_vec = SVector{atom_count, Int64}(num_vec)
         lattice_mat = SMatrix{3, 3, Float64}(lattice_mat)
-        inv_lattice_mat = SMatrix{3, 3, Float64}(inv_lattice_mat)
         pos_mat = SMatrix{3, atom_count, Float64}(pos_mat)
         spin_mat = SMatrix{3, atom_count, Float64}(spin_mat)
 
         return Struc(
             uni_num,
             lattice_mat,
-            inv_lattice_mat,
             atom_count,
             num_vec,
             pos_mat,
@@ -113,13 +108,15 @@ module Types
         approx_flag = true
 
         for one_atom in x
-            temp_vec = [
-                isapprox(one_atom, another_atom, atol=atol)
-                for another_atom in y
-            ]
+            occur_flag = false
+            for another_atom in y
+                if isapprox(one_atom, another_atom, atol=atol)
+                    occur_flag = true
+                    break
+                end
+            end
 
-            if any(temp_vec)
-            else
+            if !occur_flag
                 approx_flag = false
                 break
             end
@@ -163,21 +160,26 @@ module Types
 
     struct SymOp
         rot_mat::SMatrix{3, 3, Float64}
+        spin_rot_mat::SMatrix{3, 3, Float64}
         trans_vec::SVector{3, Float64}
         proper::Int8
         time_rev::Int8
     end
-    function SymOp(rot_mat, trans_vec, time_rev)
+    function SymOp(rot_mat, trans_vec, time_rev, lattice_mat::Matrix{Float64}, inv_lattice_mat::Matrix{Float64})
         @assert size(rot_mat) == (3, 3) "The rotation matrix should have a shape of 3x3!"
         @assert length(trans_vec) == 3
 
         rot_mat = SMatrix{3, 3, Float64}(rot_mat)
         trans_vec = SVector{3, Float64}(trans_vec)
-        proper::Int8 = (det(rot_mat) > 0) ? 1 : -1
+        proper::Int8 = sign(det(rot_mat))
         time_rev::Int8 = time_rev
+        spin_rot_mat = SMatrix{3, 3, Float64}(
+            time_rev * proper * lattice_mat * rot_mat * inv_lattice_mat
+        )
 
         return SymOp(
             rot_mat,
+            spin_rot_mat,
             trans_vec,
             proper,
             time_rev
@@ -185,15 +187,12 @@ module Types
     end
 
     Base.:*(op::SymOp, struc::Struc) = begin
-        new_pos_mat = op.rot_mat * struc.pos_mat .+ op.trans_vec
-        frac_spin = struc.inv_lattice_mat * struc.spin_mat
-        new_frac_spin = op.time_rev * op.proper * op.rot_mat * frac_spin
-        new_spin = struc.lattice_mat * new_frac_spin
+        new_pos_mat = mod1.(op.rot_mat * struc.pos_mat .+ op.trans_vec, 1)
+        new_spin = op.spin_rot_mat * struc.spin_mat
 
         return Struc(
             struc.uni_num,
             struc.lattice_mat,
-            struc.inv_lattice_mat,
             struc.atom_count,
             struc.num_vec,
             new_pos_mat,
@@ -248,9 +247,9 @@ module Types
 
     struct FallbackList
         len::Int64
-        tree::MVector
+        tree::Vector
     end
-    FallbackList(len::Int64) = FallbackList(len, @MVector zeros(Int64, len))
+    FallbackList(len::Int64) = FallbackList(len, zeros(Int64, len))
     function (fallback::FallbackList)(idx::Int64)
         @assert idx <= fallback.len
 
@@ -262,15 +261,11 @@ module Types
         end
     end
 
-    function update!(fallback::FallbackList, idx, target_idx)
+    function (fallback::FallbackList)(idx, target_idx)
         @assert 0 < idx <= fallback.len
         @assert 0 < target_idx <= fallback.len
 
-        target_idx_now = fallback.tree[idx]
-        if iszero(target_idx_now)
-            fallback.tree[idx] = target_idx
-        else
-            target_idx = min(target_idx, target_idx_now)
+        if iszero(fallback.tree[idx])
             fallback.tree[idx] = target_idx
         end
     end
