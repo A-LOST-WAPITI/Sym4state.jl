@@ -8,6 +8,7 @@ module Types
 
 
     export Struc, SymOp, FallbackList
+    export magonly
 
 
     sprintf(fmt::String, args...) = @eval Types @sprintf($(fmt), $(args...))
@@ -161,6 +162,18 @@ module Types
         end
     end
     Base.show(io::IO, struc::Struc) = show(io, "text/plain", struc)
+
+    function magonly(struc::Struc, mag_num_vec)
+        mag_flag_vec = [(num in mag_num_vec) for num in struc.num_vec]
+
+        return Struc(
+            struc.uni_num,
+            struc.lattice_mat,
+            struc.num_vec[mag_flag_vec],
+            struc.pos_mat[:, mag_flag_vec],
+            struc.spin_mat[:, mag_flag_vec]
+        )
+    end
 
 
     struct SymOp

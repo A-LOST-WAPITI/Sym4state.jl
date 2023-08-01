@@ -25,21 +25,22 @@ module ModCore
         spg_num, sym_op_vec = get_sym_op_vec(py_struc, symprec=symprec)
         @info "The space group number of given structure is $(spg_num) with given `symprec`"
         struc_vec = fourstate(py_struc, mag_num_vec, target_idx_vec)
+        mag_struc_vec = [magonly(struc, mag_num_vec) for struc in struc_vec]
 
-        unique_struc_vec = Struc[]
+        unique_mag_struc_vec = Struc[]
         fallback = FallbackList(36)
-        p = Progress(length(struc_vec) * length(sym_op_vec))
-        for struc in struc_vec
+        p = Progress(length(mag_struc_vec) * length(sym_op_vec))
+        for mag_struc in mag_struc_vec
             for sym_op in sym_op_vec
-                struc_after_op = sym_op * struc
-                source_uni_num = struc_after_op.uni_num
+                mag_struc_after_op = sym_op * mag_struc
+                source_uni_num = mag_struc_after_op.uni_num
 
                 occur_flag = false
-                for struc_occur in unique_struc_vec
-                    target_uni_num = struc_occur.uni_num
+                for mag_struc_occur in unique_mag_struc_vec
+                    target_uni_num = mag_struc_occur.uni_num
                     if source_uni_num != target_uni_num && isapprox(
-                        struc_after_op,
-                        struc_occur,
+                        mag_struc_after_op,
+                        mag_struc_occur,
                         atol=atol
                     )
                         occur_flag = true
@@ -52,8 +53,8 @@ module ModCore
 
                 if !occur_flag
                     push!(
-                        unique_struc_vec,
-                        struc_after_op
+                        unique_mag_struc_vec,
+                        mag_struc_after_op
                     )
                 end
 
