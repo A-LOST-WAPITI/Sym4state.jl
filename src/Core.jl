@@ -13,13 +13,17 @@ module ModCore
         filepath,
         mag_num_vec,
         target_idx_vec;
-        atol=1e-2
+        atol=1e-2,
+        symprec=1e-2
     )
+        @info "Absolute tolrance is set to $(atol)"
+        @info "Symmetry precision is set to $(symprec)"
         py_struc = get_py_struc(filepath)
 
         #TODO: Check whether `target_idx_vec` is enough.
 
-        spg_num, sym_op_vec = get_sym_op_vec(py_struc)
+        spg_num, sym_op_vec = get_sym_op_vec(py_struc, symprec=symprec)
+        @info "The space group number of given structure is $(spg_num) with given `symprec`"
         struc_vec = fourstate(py_struc, mag_num_vec, target_idx_vec)
 
         unique_struc_vec = Struc[]

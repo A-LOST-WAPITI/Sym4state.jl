@@ -5,7 +5,7 @@ module Utils
     using ..Types
 
     
-    export fourstate
+    export fourstate, simplify_map
 
 
     function mag_config(mag_count, target_idx_vec)
@@ -51,6 +51,7 @@ module Utils
             pyconvert(Matrix{Float64}, py_pos_mat),
             (2, 1)
         )
+        pos_mat = mod1.(pos_mat, 1)
         num_vec = pyconvert(Vector{Int64}, py_num_vec)
 
         mag_flag_vec = [(num in mag_num_vec) for num in num_vec]
@@ -59,13 +60,14 @@ module Utils
 
         struc_vec = Struc[]
         for idx in axes(mag_config_array, 3)
-            spin_mat = mag_config_array[:, :, idx]
+            spin_mat = zero(pos_mat)
+            spin_mat[:, mag_flag_vec] .= mag_config_array[:, :, idx]
 
             struc = Struc(
                 idx,
                 lattice_mat,
-                num_vec[mag_flag_vec],
-                pos_mat[:, mag_flag_vec],
+                num_vec,
+                pos_mat,
                 spin_mat
             )
 
@@ -74,4 +76,24 @@ module Utils
 
         return struc_vec
     end
+
+    function simplify_map(fallback::FallbackList)
+        map_array = [zeros(Int8, 4) for _ = 1:3, _ = 1:3]
+        temp = eachslice(reshape(fallback.(1:36), (4, 3, 3)), dims=(2, 3))
+
+        for idx in eachindex(temp)
+            element_comp = temp[idx]
+            part1 = element_comp[[1, 4]]
+            part2 = element_comp[[2, 3]]
+
+            part_diff = setdiff(part1, part2)
+            if length(part_diff) != 0
+                map_array[idx] .= element_comp
+            end
+        end
+
+        return map_array
+    end
+
+
 end

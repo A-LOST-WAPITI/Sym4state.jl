@@ -4,9 +4,32 @@ module Types
     using LinearAlgebra
     using PeriodicTable
     using Printf
+    using CellListMap
 
 
     export Struc, SymOp, FallbackList
+
+
+    sprintf(fmt::String, args...) = @eval Types @sprintf($(fmt), $(args...))
+
+    function vec2str(x; fmt::String="%7.4f")
+        return "[" * join(
+            [sprintf(fmt, item) for item in x],
+            ", "
+        ) * "]"
+    end
+
+    function mat2str(x; fmt::String="%10.4f")
+        str = ""
+        for row in eachrow(x)
+            str *= join(
+                [sprintf(fmt, item) for item in row],
+                " "
+            ) * "\n"
+        end
+
+        return str
+    end
 
 
     struct Atom
@@ -17,35 +40,29 @@ module Types
 
     Base.isapprox(x::Atom, y::Atom; atol=1e-2) = begin
         num_flag = (x.num == y.num)
-        pos_flag = isapprox(
-            x.pos,
-            y.pos,
-            atol=atol
-        )
         spin_flag = isapprox(
             x.spin,
             y.spin,
             atol=atol
         )
 
-        approx_flag = (num_flag && pos_flag && spin_flag)
+        dis_1d_vec::MVector = @. abs(x.pos - y.pos)
+        cir_flag_vec = dis_1d_vec .> 0.5
+        dis_1d_vec[cir_flag_vec] .-= 1
+        dis = norm(dis_1d_vec)
+        pos_flag = dis < atol
+
+        approx_flag = (num_flag && spin_flag && pos_flag)
 
         return approx_flag
     end
 
     function Base.show(io::IO, ::MIME"text/plain", atom::Atom)
-        function vec2str(x)
-            return "[" * join(
-                [@sprintf("%7.4f", item) for item in x],
-                ", "
-            ) * "]"
-        end
-
         println(
             io,
-            "$(elements[atom.num].symbol)" *
+            @sprintf("%3s", elements[atom.num].symbol) *
                 " @ " * vec2str(atom.pos) *
-                " with spin " * vec2str(atom.spin)
+                " with spin " * vec2str(atom.spin, fmt="%2d")
         )
 
         return nothing
@@ -126,18 +143,6 @@ module Types
     end
 
     function Base.show(io::IO, ::MIME"text/plain", struc::Struc)
-        function mat2str(x)
-            str = ""
-            for row in eachrow(x)
-                str *= join(
-                    [@sprintf("%10.4f", item) for item in row],
-                    " "
-                ) * "\n"
-            end
-
-            return str
-        end
-
         println(io, "Structure Summary:")
         ## Lattice matrix
         print(
@@ -269,4 +274,6 @@ module Types
             fallback.tree[idx] = target_idx
         end
     end
+
+
 end
