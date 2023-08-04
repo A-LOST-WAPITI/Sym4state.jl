@@ -1,11 +1,23 @@
 module Utils
     using InvertedIndices
     using LinearAlgebra
+    using DelimitedFiles
     using PythonCall
     using ..Types
+    using ..Pymatgen
 
     
-    export fourstate, simplify_map
+    export fourstate, to_vasp_inputs
+
+
+    const py_np = PythonCall.pynew()
+
+    function __init__()
+        PythonCall.pycopy!(
+            py_np,
+            pyimport("numpy")
+        )
+    end
 
 
     function mag_config(mag_count, target_idx_vec)
@@ -77,23 +89,48 @@ module Utils
         return struc_vec
     end
 
-    function simplify_map(fallback::FallbackList)
-        map_array = [zeros(Int8, 4) for _ = 1:3, _ = 1:3]
-        temp = eachslice(reshape(fallback.(1:36), (4, 3, 3)), dims=(2, 3))
-
-        for idx in eachindex(temp)
-            element_comp = temp[idx]
-            part1 = element_comp[[1, 4]]
-            part2 = element_comp[[2, 3]]
-
-            part_diff = setdiff(part1, part2)
-            if length(part_diff) != 0
-                map_array[idx] .= element_comp
+    function to_vasp_inputs(
+        map::Map;
+        incar_path="./INCAR",
+        poscar_path="./POSCAR",
+        potcar_path="./POTCAR",
+        kpoints_path="./KPOINTS"
+    )
+        par_dir_name = "./J_MAT/"
+        if isdir(par_dir_name)
+            @warn "Old input dir detected! Do you want to delete them? (Y[es]/N[o])"
+            choice = readline(stdin)
+            if uppercase(first(choice)) == 'Y'
+                rm(par_dir_name, recursive=true, force=true)
+            else
+                @info "Do not delete them."
+                return nothing
             end
         end
 
-        return map_array
+        py_incar = py_Incar.from_file(incar_path)
+
+        mkdir(par_dir_name)
+        conf_dir_vec = String[]
+        for (struc_idx, struc) in enumerate(map.struc_vec)
+            conf_dir = par_dir_name * "conf_$(struc_idx)/"
+            mkdir(conf_dir)
+
+            py_magmom_list = py_np.array(transpose(struc.spin_mat)).tolist()
+            py_incar.update(Dict(
+                "MAGMOM" => py_magmom_list,
+                "M_CONSTR" => pylist(struc.spin_mat)
+            ))
+
+            py_incar.write_file(conf_dir * "INCAR")
+            symlink(abspath(poscar_path), conf_dir * "POSCAR")
+            symlink(abspath(potcar_path), conf_dir * "POTCAR")
+            symlink(abspath(kpoints_path), conf_dir * "KPOINTS")
+
+            push!(conf_dir_vec, conf_dir)
+        end
+
+        @info "Storing path to different configuration into `CONF_DIR`. One may use SLURM's job array to calculate."
+        writedlm("CONF_DIR", conf_dir_vec)
     end
-
-
 end

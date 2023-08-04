@@ -7,7 +7,7 @@ module Types
     using CellListMap
 
 
-    export Struc, SymOp, FallbackList
+    export Struc, SymOp, FallbackList, Map
     export magonly
 
 
@@ -289,4 +289,33 @@ module Types
     end
 
 
+    struct Map
+        map_mat::Matrix{Vector{Int8}}
+        fallback_vec::Vector{Int8}
+        struc_vec::Vector{Struc}
+    end
+
+    function Map(fallback::FallbackList, all_struc_vec::Vector{Struc})
+        map_mat = [zeros(Int8, 4) for _ = 1:3, _ = 1:3]
+        temp = eachslice(reshape(fallback.(1:36), (4, 3, 3)), dims=(2, 3))
+
+        for idx in eachindex(temp)
+            element_comp = temp[idx]
+            part1 = element_comp[[1, 4]]
+            part2 = element_comp[[2, 3]]
+
+            part_diff = setdiff(part1, part2)
+            if length(part_diff) != 0
+                map_mat[idx] .= element_comp
+            end
+        end
+
+        fallback_vec = filter(>(0), vcat(map_mat...)) |> unique |> sort
+
+        return Map(
+            map_mat,
+            fallback_vec,
+            all_struc_vec[fallback_vec]
+        )
+    end
 end

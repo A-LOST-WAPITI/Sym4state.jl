@@ -62,6 +62,8 @@ module ModCore
             end
         end
 
-        return fallback
+        map = Map(fallback, struc_vec)
+
+        to_vasp_inputs(map)
     end
 end
