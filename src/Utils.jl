@@ -89,6 +89,52 @@ module Utils
         return struc_vec
     end
 
+
+    function equal_bond(py_struc, spg_num, mag_num_vec, target_idx_vec)
+        py_mag_struc = py_struc.copy()
+        num_vec = pyconvert(Vector, py_struc.atomic_numbers)
+        nonmag_idx_vec = findall([!(num in mag_num_vec) for num in num_vec]) .- 1
+        py_mag_struc.remove_sites(PyList(nonmag_idx_vec))
+
+        cutoff = ceil(pyconvert(
+            Float64,
+            py_mag_struc.get_distance((target_idx_vec .- 1)...)
+        ))
+        (
+            py_center_indices,
+            py_points_indices,
+            _,
+            _,
+            py_symmetry_indices,
+            _
+        ) = py_mag_struc.get_symmetric_neighbor_list(
+            cutoff,
+            spg_num,
+            numerical_tol=1e-2,
+            exclude_self=true,
+            unique=false
+        )
+        center_idx_vec = pyconvert(Vector, py_center_indices) .+ 1
+        points_idx_vec = pyconvert(Vector, py_points_indices) .+ 1
+        symmetry_idx_vec = pyconvert(Vector{Int64}, py_symmetry_indices)
+
+        target_center_idx_vec = findall(==(target_idx_vec[1]), center_idx_vec)
+        target_points_idx_vec = findall(==(target_idx_vec[2]), points_idx_vec)
+        target_pair_idx_vec = intersect(target_center_idx_vec, target_points_idx_vec)
+        if length(target_pair_idx_vec) > 1
+            error("Given supercell is not large enough for target atom pair.")
+        else
+            target_pair_idx = target_pair_idx_vec[1]
+        end
+
+        sym_idx = symmetry_idx_vec[target_pair_idx]
+        equal_pair_idx_vec = intersect(
+            target_center_idx_vec,
+            findall(==(sym_idx), symmetry_idx_vec)
+        )
+    end
+
+
     function to_vasp_inputs(
         map::Map;
         incar_path="./INCAR",
