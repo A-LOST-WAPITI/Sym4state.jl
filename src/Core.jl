@@ -1,7 +1,6 @@
 module ModCore
     using ProgressMeter
     using ..Pymatgen
-    using ..Spglib
     using ..Utils
     using ..Types
 
@@ -14,7 +13,8 @@ module ModCore
         mag_num_vec,
         target_idx_vec;
         atol=1e-2,
-        symprec=1e-2
+        symprec=1e-2,
+        angle_tolerance=5.0
     )
         @info "Absolute tolrance is set to $(atol)"
         @info "Symmetry precision is set to $(symprec)"
@@ -22,7 +22,11 @@ module ModCore
 
         #TODO: Check whether `target_idx_vec` is enough.
 
-        spg_num, sym_op_vec = get_sym_op_vec(py_struc, symprec=symprec)
+        spg_num, sym_op_vec = get_sym_op_vec(
+            py_struc,
+            symprec=symprec,
+            angle_tolerance=angle_tolerance
+        )
         @info "The space group number of given structure is $(spg_num) with given `symprec`"
         struc_vec = fourstate(py_struc, mag_num_vec, target_idx_vec)
         mag_struc_vec = [magonly(struc, mag_num_vec) for struc in struc_vec]
