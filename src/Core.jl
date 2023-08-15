@@ -1,5 +1,6 @@
 module ModCore
     using ProgressMeter
+    using FileIO
     using ..Pymatgen
     using ..Utils
     using ..Types
@@ -21,17 +22,19 @@ module ModCore
         @info "Symmetry precision is set to $(symprec)"
         py_struc = get_py_struc(filepath)
 
-        #TODO: Check whether `target_idx_vec` is enough.
-
         spg_num, sym_op_vec = get_sym_op_vec(
             py_struc,
             symprec=symprec,
             angle_tolerance=angle_tolerance
         )
         @info "The space group number of given structure is $(spg_num) with given `symprec`"
+
+        equal_pair(py_struc, supercell_size, spg_num, mag_num_vec, target_idx_vec)
+
         struc_vec = fourstate(py_struc, mag_num_vec, target_idx_vec)
         mag_struc_vec = [magonly(struc, mag_num_vec) for struc in struc_vec]
 
+        @info "Reducing 4-state matrix..."
         unique_mag_struc_vec = Struc[]
         fallback = FallbackList(36)
         p = Progress(length(mag_struc_vec) * length(sym_op_vec))
@@ -73,6 +76,14 @@ module ModCore
 
         map = Map(fallback, struc_vec)
 
-        return map
+        @info "Saving the reduced map into \"Map.jld2\"..."
+        save(
+            "Map.jld2",
+            Dict(
+                "map" => map
+            )
+        )
+
+        return nothing
     end
 end

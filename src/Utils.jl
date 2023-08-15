@@ -7,7 +7,7 @@ module Utils
     using ..Pymatgen
 
     
-    export fourstate, to_vasp_inputs
+    export fourstate, to_vasp_inputs, equal_pair
 
 
     const py_np = PythonCall.pynew()
@@ -90,7 +90,7 @@ module Utils
     end
 
 
-    function equal_pair(py_struc, spg_num, mag_num_vec, target_idx_vec)
+    function equal_pair(py_struc, supercell_size, spg_num, mag_num_vec, target_idx_vec)
         # remove all nonmagnetic atoms for only considering pairs between
         # magnetic atoms
         py_mag_struc = py_struc.copy()
@@ -124,7 +124,7 @@ module Utils
         target_points_idx_vec = findall(==(target_idx_vec[2]), points_idx_vec)
         target_pair_idx_vec = intersect(target_center_idx_vec, target_points_idx_vec)
         if length(target_pair_idx_vec) > 1
-            error("Given supercell is not large enough for target atom pair.")
+            error("Given supercell $(supercell_size) is not large enough for target atom pair $(target_idx_vec).")
         else
             target_pair_idx = target_pair_idx_vec[1]
         end
@@ -134,6 +134,16 @@ module Utils
             target_center_idx_vec,
             findall(==(sym_idx), symmetry_idx_vec)
         )
+        equal_center_idx_vec = center_idx_vec[equal_pair_idx_vec]
+        equal_points_idx_vec = points_idx_vec[equal_pair_idx_vec]
+
+        @info "Equal pairs are shown as follow:"
+        for (center_idx, point_idx) in zip(equal_center_idx_vec, equal_points_idx_vec)
+            @info "$(center_idx) <=> $(point_idx)"
+        end
+
+        # TODO: Is there any proper way to restore those relations?
+        return nothing
     end
 
 

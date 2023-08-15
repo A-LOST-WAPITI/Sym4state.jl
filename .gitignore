@@ -10,3 +10,6 @@
 
 ## CondaPkg.jl
 .CondaPkg
+
+## JLD2
+*.jld2
