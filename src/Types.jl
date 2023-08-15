@@ -319,4 +319,17 @@ module Types
             all_struc_vec[fallback_vec]
         )
     end
+
+    function Base.show(io::IO, ::MIME"text/plain", map::Map)
+        for row in eachrow(map.map_mat)
+            for item in row
+                print(io, vec2str(item, fmt="%2d"))
+                print(io, "\t")
+            end
+            println(io)
+        end
+
+        print(io, "A reduced map with $(length(map.fallback_vec)) unique configurations")
+    end
+    Base.show(io::IO, map::Map) = show(io, "text/plain", map)
 end
