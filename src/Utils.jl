@@ -90,7 +90,9 @@ module Utils
     end
 
 
-    function equal_bond(py_struc, spg_num, mag_num_vec, target_idx_vec)
+    function equal_pair(py_struc, spg_num, mag_num_vec, target_idx_vec)
+        # remove all nonmagnetic atoms for only considering pairs between
+        # magnetic atoms
         py_mag_struc = py_struc.copy()
         num_vec = pyconvert(Vector, py_struc.atomic_numbers)
         nonmag_idx_vec = findall([!(num in mag_num_vec) for num in num_vec]) .- 1
@@ -99,7 +101,7 @@ module Utils
         cutoff = ceil(pyconvert(
             Float64,
             py_mag_struc.get_distance((target_idx_vec .- 1)...)
-        ))
+        ))  # get the length of given atom pair
         (
             py_center_indices,
             py_points_indices,

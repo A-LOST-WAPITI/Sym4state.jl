@@ -10,6 +10,7 @@ module ModCore
 
     function sym4state(
         filepath,
+        supercell_size,
         mag_num_vec,
         target_idx_vec;
         atol=1e-2,
@@ -40,18 +41,22 @@ module ModCore
                 source_uni_num = mag_struc_after_op.uni_num
 
                 occur_flag = false
-                for mag_struc_occur in unique_mag_struc_vec
+                para_lock = Threads.SpinLock()
+                Threads.@threads for mag_struc_occur in unique_mag_struc_vec
                     target_uni_num = mag_struc_occur.uni_num
                     if source_uni_num != target_uni_num && isapprox(
                         mag_struc_after_op,
                         mag_struc_occur,
                         atol=atol
                     )
-                        occur_flag = true
-                        fallback(
-                            source_uni_num,
-                            target_uni_num
-                        )
+                        Threads.lock(para_lock) do
+                            occur_flag = true
+
+                            fallback(
+                                source_uni_num,
+                                target_uni_num
+                            )
+                        end
                     end
                 end
 
