@@ -283,7 +283,8 @@ module Types
         @assert 0 < idx <= fallback.len
         @assert 0 < target_idx <= fallback.len
 
-        if iszero(fallback.tree[idx])
+        former_target = fallback.tree[idx]
+        if iszero(former_target) || former_target > target_idx
             fallback.tree[idx] = target_idx
         end
     end
