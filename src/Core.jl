@@ -5,7 +5,7 @@ module ModCore
     using ..Types
 
 
-    export sym4state
+    export pre_process
 
 
     function sym4state(
