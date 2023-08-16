@@ -1,7 +1,6 @@
 module ModCore
     using ProgressMeter
     using FileIO
-    using ..Pymatgen
     using ..Utils
     using ..Types
 

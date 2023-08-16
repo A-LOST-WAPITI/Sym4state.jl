@@ -4,20 +4,10 @@ module Utils
     using DelimitedFiles
     using PythonCall
     using ..Types
-    using ..Pymatgen
+    using ..Python
 
     
-    export fourstate, to_vasp_inputs, equal_pair
-
-
-    const py_np = PythonCall.pynew()
-
-    function __init__()
-        PythonCall.pycopy!(
-            py_np,
-            pyimport("numpy")
-        )
-    end
+    export fourstate, to_vasp_inputs, equal_pair, get_py_struc, get_sym_op_vec
 
 
     function mag_config(mag_count, target_idx_vec)
@@ -190,5 +180,55 @@ module Utils
 
         @info "Storing path to different configuration into `CONF_DIR`. One may use SLURM's job array to calculate."
         writedlm("CONF_DIR", conf_dir_vec)
+    end
+
+
+    get_py_struc(filepath::String) = py_Struc.from_file(filepath)
+
+
+    function get_sym_op_vec(py_struc; symprec=1e-2, angle_tolerance=5.0)
+        py_sga = py_Sga(
+            py_struc,
+            symprec=symprec,
+            angle_tolerance=angle_tolerance
+        )
+        
+        py_sym_dict = py_sga.get_symmetry_dataset()
+
+        spg_num = pyconvert(Int64, py_sym_dict["number"])
+        lattice_mat = permutedims(
+            pyconvert(Array{Float64}, py_struc.lattice.matrix),
+            (2, 1)
+        )
+        inv_lattive_mat = inv(lattice_mat)
+        rot_array = permutedims(
+            pyconvert(Array{Float64}, py_sym_dict["rotations"]),
+            (2, 3, 1)
+        )
+        trans_mat = permutedims(
+            pyconvert(Array{Float64}, py_sym_dict["translations"]),
+            (2, 1)
+        )
+
+        op_vec = SymOp[]
+        num_op = size(rot_array, 3)
+        for idx = 1:num_op
+            rot_mat = rot_array[:, :, idx]
+            trans_vec = trans_mat[:, idx]
+
+            for time_rev = 1:-2:-1
+                op = SymOp(
+                    rot_mat,
+                    trans_vec,
+                    time_rev,
+                    lattice_mat,
+                    inv_lattive_mat
+                )
+
+                push!(op_vec, op)
+            end
+        end
+
+        return spg_num, op_vec
     end
 end
