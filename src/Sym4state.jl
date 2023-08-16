@@ -7,6 +7,6 @@ module Sym4state
 
     using .ModCore
 
-    
-    export sym4state
+
+    export pre_process
 end

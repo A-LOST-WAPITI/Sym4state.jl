@@ -30,10 +30,10 @@ module ModCore
 
         equal_pair(py_struc, supercell_size, spg_num, mag_num_vec, target_idx_vec)
 
-        struc_vec = fourstate(py_struc, mag_num_vec, target_idx_vec)
+        struc_vec = get_all_j_struc_vec(py_struc, mag_num_vec, target_idx_vec)
         mag_struc_vec = [magonly(struc, mag_num_vec) for struc in struc_vec]
 
-        @info "Reducing 4-state matrix..."
+        @info "Reducing 4-state J matrix..."
         unique_mag_struc_vec = Struc[]
         fallback = FallbackList(36)
         p = Progress(length(mag_struc_vec) * length(sym_op_vec))
@@ -83,6 +83,43 @@ module ModCore
             )
         )
 
-        return nothing
+        return map
     end
+
+
+    function pre_process(
+        poscar_path,
+        supercell_size,
+        mag_num_vec,
+        target_idx_vec;
+        atol=1e-2,
+        symprec=1e-2,
+        angle_tolerance=5.0,
+        incar_path="./INCAR",
+        potcar_path="./POTCAR",
+        kpoints_path="./KPOINTS"
+    )
+        map = sym4state(
+            poscar_path,
+            supercell_size,
+            mag_num_vec,
+            target_idx_vec;
+            atol=atol,
+            symprec=symprec,
+            angle_tolerance=angle_tolerance
+        )
+
+        to_vasp_inputs(
+            map,
+            incar_path=incar_path,
+            poscar_path=poscar_path,
+            potcar_path=potcar_path,
+            kpoints_path=kpoints_path
+        )
+    end
+
+    # function post_process(
+    #     map_path::String;
+    #     cal_dir_path="./"
+    # )
 end

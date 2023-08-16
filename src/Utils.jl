@@ -3,11 +3,15 @@ module Utils
     using LinearAlgebra
     using DelimitedFiles
     using PythonCall
+    using Printf
     using ..Types
     using ..Python
 
-    
-    export fourstate, to_vasp_inputs, equal_pair, get_py_struc, get_sym_op_vec
+
+    export get_all_j_struc_vec, to_vasp_inputs, equal_pair, get_py_struc, get_sym_op_vec
+
+
+    include("data/CovalentRadius.jl")
 
 
     function mag_config(mag_count, target_idx_vec)
@@ -40,7 +44,7 @@ module Utils
     end
 
 
-    function fourstate(py_struc, mag_num_vec, target_idx_vec)
+    function get_all_j_struc_vec(py_struc, mag_num_vec, target_idx_vec)
         py_lattice_mat = py_struc.lattice.matrix
         py_pos_mat = py_struc.frac_coords
         py_num_vec = py_struc.atomic_numbers
@@ -77,6 +81,11 @@ module Utils
         end
 
         return struc_vec
+    end
+
+    # TODO: generate structures used in A matrix
+    function get_all_a_struc_vec_nosym(py_struc, mag_num_vec, target_idx_vec)
+        
     end
 
 
@@ -137,6 +146,36 @@ module Utils
     end
 
 
+    function set_rwigs(poscar_path)
+        symbol_vec = split(readlines(poscar_path)[6])
+
+        rwigs_vec = Float64[]
+        for element_symbol in symbol_vec
+            item = RADIUS_DICT[element_symbol]
+            names = item["name"]
+            radius = item["radii"]
+
+            mult = length(names)
+            if mult == 1
+                radii = radius[1]
+            else
+                @info "There are different hybridisations of this element."
+                @info "     Hybridisation: " * repr(names)
+                @info "Coorespoding radii: " * repr(radius)
+                @info "Type the index of the radii you want:"
+                idx = parse(Int64, readline(stdin))
+                
+                radii = radius[idx]
+            end
+
+            @info "Covalent radii of $(element_symbol) is set to $(radii)."
+            push!(rwigs_vec, radii)
+        end
+
+        return rwigs_vec
+    end
+
+
     function to_vasp_inputs(
         map::Map;
         incar_path="./INCAR",
@@ -144,6 +183,10 @@ module Utils
         potcar_path="./POTCAR",
         kpoints_path="./KPOINTS"
     )
+        @assert isfile(incar_path) "Invalid `INCAR` path!"
+        @assert isfile(potcar_path) "Invalid `POTCAR` path!"
+        @assert isfile(kpoints_path) "Invalid `KPOINTS` path!"
+
         par_dir_name = "./J_MAT/"
         if isdir(par_dir_name)
             @warn "Old input dir detected! Do you want to delete them? (Y[es]/N[o])"
@@ -157,6 +200,7 @@ module Utils
         end
 
         py_incar = py_Incar.from_file(incar_path)
+        rwigs_vec = set_rwigs(poscar_path)
 
         mkdir(par_dir_name)
         conf_dir_vec = String[]
@@ -167,7 +211,9 @@ module Utils
             py_magmom_list = py_np.array(transpose(struc.spin_mat)).tolist()
             py_incar.update(Dict(
                 "MAGMOM" => py_magmom_list,
-                "M_CONSTR" => pylist(struc.spin_mat)
+                "M_CONSTR" => pylist(struc.spin_mat),
+                "I_CONSTRAINED_M" => 1,
+                "RWIGS" => pylist(rwigs_vec)
             ))
 
             py_incar.write_file(conf_dir * "INCAR")
@@ -178,8 +224,8 @@ module Utils
             push!(conf_dir_vec, conf_dir)
         end
 
-        @info "Storing path to different configuration into `CONF_DIR`. One may use SLURM's job array to calculate."
-        writedlm("CONF_DIR", conf_dir_vec)
+        @info "Storing path to different configuration into `J_CONF_DIR`. One may use SLURM's job array to calculate."
+        writedlm("J_CONF_DIR", conf_dir_vec)
     end
 
 
