@@ -217,9 +217,9 @@ module Utils
             ))
 
             py_incar.write_file(conf_dir * "INCAR")
-            symlink(abspath(poscar_path), conf_dir * "POSCAR")
-            symlink(abspath(potcar_path), conf_dir * "POTCAR")
-            symlink(abspath(kpoints_path), conf_dir * "KPOINTS")
+            symlink(relpath(poscar_path, conf_dir), conf_dir * "POSCAR")
+            symlink(relpath(potcar_path, conf_dir), conf_dir * "POTCAR")
+            symlink(relpath(kpoints_path, conf_dir), conf_dir * "KPOINTS")
 
             push!(conf_dir_vec, conf_dir)
         end
