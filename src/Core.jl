@@ -15,7 +15,8 @@ module ModCore
         target_idx_vec;
         atol=1e-2,
         symprec=1e-2,
-        angle_tolerance=5.0
+        angle_tolerance=5.0,
+        show_progress_bar=true
     )
         @info "Absolute tolrance is set to $(atol)"
         @info "Symmetry precision is set to $(symprec)"
@@ -36,7 +37,11 @@ module ModCore
         @info "Reducing 4-state J matrix..."
         unique_mag_struc_vec = Struc[]
         fallback = FallbackList(36)
-        p = Progress(length(mag_struc_vec) * length(sym_op_vec))
+        p = Progress(
+            length(mag_struc_vec) * length(sym_op_vec);
+            showspeed=true,
+            enabled=show_progress_bar
+        )
         for mag_struc in mag_struc_vec
             for sym_op in sym_op_vec
                 mag_struc_after_op = sym_op * mag_struc
