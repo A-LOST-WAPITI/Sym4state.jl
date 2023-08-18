@@ -8,7 +8,7 @@ module Utils
     using ..Python
 
 
-    export get_all_j_struc_vec, to_vasp_inputs, equal_pair, get_py_struc, get_sym_op_vec
+    export get_all_j_struc_vec, to_vasp_inputs, equal_pair, get_py_struc, get_sym_op_vec, get_j_mat
 
 
     include("data/CovalentRadius.jl")
@@ -276,5 +276,67 @@ module Utils
         end
 
         return spg_num, op_vec
+    end
+
+
+    function get_energy_and_magmom(py_outcar)
+        energy = pyconvert(Float64, py_outcar.final_energy)
+
+        py_mag_mat = py_np.vstack(
+            [item["tot"].moment for item in py_outcar.magnetization]
+        )
+        mag_mat = permutedims(
+            pyconvert(Matrix{Float64}, py_mag_mat),
+            (2, 1)
+        )
+
+        return energy, mag_mat
+    end
+
+    function get_j_mat(
+        map::Map,
+        conf_list_path::String,
+        target_idx_vec::Vector{Int64}
+    )
+        fallback_vec = map.fallback_vec
+        conf_dir_vec = readdlm(conf_list_path)
+        @assert length(fallback_vec) == length(conf_dir_vec)
+
+        energy_vec = Dict{Int8, Float64}()
+        for (conf_idx, conf_dir) in enumerate(conf_dir_vec)
+            target_conf_mag_mat = map.struc_vec[conf_idx].spin_mat[:, target_idx_vec]
+            py_outcar = py_Outcar(conf_dir * "OUTCAR")
+            energy, mag_mat = get_energy_and_magmom(py_outcar)
+
+            target_mag_mat = mag_mat[:, target_idx_vec]
+            target_mag_mat = round.(target_mag_mat, RoundToZero; digits=1)
+            for col in eachcol(target_mag_mat)
+                normalize!(col)
+            end
+            if !isapprox(target_mag_mat, target_conf_mag_mat)
+                @error "MAGMOM of $(conf_dir) changed after SCF!"
+            end
+
+            energy_vec[fallback_vec[conf_idx]] = energy
+        end
+
+        j_mat = zeros(3, 3)
+        for i = 1:3, j = 1:3
+            map_vec = map.map_mat[i, j]
+            
+            if map_vec[1] == 0
+                j_mat[i, j] = 0
+            else
+                idx_1, idx_2, idx_3, idx_4 = map_vec
+                j_mat[i, j] = (
+                    energy_vec[idx_1] -
+                    energy_vec[idx_2] -
+                    energy_vec[idx_3] +
+                    energy_vec[idx_4]
+                )/4
+            end
+        end
+
+        return j_mat
     end
 end

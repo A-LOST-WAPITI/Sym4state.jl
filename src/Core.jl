@@ -123,8 +123,22 @@ module ModCore
         )
     end
 
-    # function post_process(
-    #     map_path::String;
-    #     cal_dir_path="./"
-    # )
+    function post_process(
+        map_path::String,
+        target_idx_vec
+    )
+        map = load(
+            map_path,
+            "map"
+        )
+        cal_dir = dirname(map_path)
+        conf_list_path = cal_dir * "/J_CONF_DIR"
+
+        dir_now = pwd()
+        cd(cal_dir)
+        j_mat = get_j_mat(map, conf_list_path, target_idx_vec)
+        cd(dir_now)
+
+        return j_mat
+    end
 end

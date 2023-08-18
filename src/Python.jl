@@ -2,7 +2,7 @@ module Python
     using PythonCall
 
 
-    export py_Struc, py_Incar, py_Sga, py_np
+    export py_Struc, py_Incar, py_Outcar, py_Sga, py_np
 
 
     const py_Struc = PythonCall.pynew()
