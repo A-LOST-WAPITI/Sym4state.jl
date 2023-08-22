@@ -11,11 +11,26 @@ FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 InvertedIndices = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"
 PeriodicTable = "7b2266bf-644c-5ea3-82d8-af4bbd25a884"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
+[weakdeps]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+PhysicalConstants = "5ad8b20f-a522-5ce9-bfc9-ddf1d5bda6ab"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
+UnitfulAtomic = "a7773ee8-282e-5fa2-be4e-bd808c38a91a"
+
+[extensions]
+MCConfig = ["TOML", "Unitful", "UnitfulAtomic", "PhysicalConstants"]
+MCFlip = ["CUDA", "Unitful", "UnitfulAtomic", "PhysicalConstants"]
+MCMeasure = ["Statistics", "StatsBase"]
 
 [compat]
 julia = "1.9"
