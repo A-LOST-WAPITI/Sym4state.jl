@@ -168,7 +168,7 @@ module Utils
                 radii = radius[idx]
             end
 
-            @info "Covalent radii of $(element_symbol) is set to $(radii)."
+            @info "RWIGS of $(element_symbol) is set to $(radii)."
             push!(rwigs_vec, radii)
         end
 
