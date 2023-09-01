@@ -5,6 +5,9 @@ module MCUtils
     using ..MCTypes
 
 
+    export domain_decompose
+
+
     function domain_decompose(lattice::Lattice)
         point_idx_array = lattice.point_idx_array
         hull_points = convex_hull(
@@ -33,12 +36,12 @@ module MCUtils
             hull_points[idx] + hull_points[mod1(idx + 1, equal_points_num)]
             for idx = 1:equal_points_num
         ]
-        check_mat, colors = color_check_mat(x_lattice, y_lattice, equal_points_idx)
+        color_check_mat, colors = color_check(x_lattice, y_lattice, equal_points_idx)
 
-        return check_mat, colors
+        return color_check_mat, colors
     end
 
-    function color_check_mat(x_lattice, y_lattice, equal_points_idx)
+    function color_check(x_lattice, y_lattice, equal_points_idx)
         idx_mat = CartesianIndices((x_lattice, y_lattice))
 
         check_dsu = DisjointSets{CartesianIndex{2}}(idx_mat)

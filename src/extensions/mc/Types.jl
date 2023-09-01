@@ -1,5 +1,5 @@
 module MCTypes
-    export Lattice, Environment, Method
+    export Lattice, Environment, MCMethod
 
     mutable struct Lattice{T<:AbstractFloat}
         size::NTuple{2, Int}
@@ -7,7 +7,7 @@ module MCTypes
         offset_array::AbstractMatrix{T}
         magmom_vector::AbstractVector{T}
         point_idx_array::AbstractArray{Int, 3}
-        interact_coeff_array::AbstractArray{T, 3}
+        interact_coeff_array::AbstractArray{T, 4}
     end
 
     struct Environment{T<:AbstractFloat}
@@ -15,7 +15,7 @@ module MCTypes
         magnetic_field::AbstractVector{T}
     end
 
-    struct Method
+    struct MCMethod
         step_equilibration_num::Int
         step_measure_num::Int
         #TODO: PTMC
