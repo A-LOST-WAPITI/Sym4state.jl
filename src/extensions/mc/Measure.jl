@@ -1,88 +1,96 @@
 module MCMeasure
-    using Statistics
-    using StatsBase
+    using Statistics: mean
+    using LinearAlgebra: norm
+    using KernelAbstractions: @kernel, @index, get_backend
+    using KernelAbstractions: zeros as KAzeros
 
-    function measure_mag_mean(states_array)
+    const MU_B::Float32 = 0.5f0
+
+    export mag_mean, energy_mean
+
+
+    function mag_mean(states_array)
         mag_mean_vec = mean(states_array, dims=(1, 2, 3))
         mag_mean = norm(mag_mean_vec)
 
         return mag_mean
     end
 
+    @kernel function site_energy_kernel!(
+        energy_array,
+        @Const(states_array),
+        @Const(point_idx_array),
+        @Const(interact_coeff_array),
+        @Const(magnetic_field),
+    )
+        idx_x, idx_y, idx_t = @index(Global, NTuple)
+        n_x, n_y, _, _ = size(states_array)
+        n_p = size(interact_coeff_array, 2)
+
+        @inbounds state = @view states_array[idx_x, idx_y, idx_t, :]
+
+        # init energy
+        energy = zero(eltype(states_array))
+
+        # energy from magnetic field
+        for idx_pos = 1:3
+            @inbounds energy += MU_B * magnetic_field[idx_pos] * state[idx_pos]
+        end
+        # energy from interacting
+        for idx_p = 1:n_p
+            @inbounds point_diff = @view point_idx_array[idx_t, idx_p, :]
+            target_idx_x = mod1(idx_x + point_diff[1], n_x)
+            target_idx_y = mod1(idx_y + point_diff[2], n_y)
+            target_idx_t = point_diff[3]
+
+            @inbounds interact_coeff_mat = @view interact_coeff_array[idx_t, idx_p, :, :]
+            @inbounds point_state = @view states_array[target_idx_x, target_idx_y, target_idx_t, :]
+
+            for i = 1:3, j = 1:3
+                @inbounds energy += state[i] * interact_coeff_mat[i, j] * point_state[j]
+            end
+        end
+    end
+
     function site_energy!(
         energy_array,
         states_array,
-        mag_field,
-        a_mat,
-        j_array,
-        idx_mat,
-        atom_type
+        point_idx_array,
+        interact_coeff_array,
+        magnetic_field,
     )
-        x = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-        y = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+        site_size = size(energy_array)
+        backend = get_backend(energy_array)
 
-        n_x, n_y, _, _ = size(states_array)
-        neigh_type_num = size(j_array, 3)
-        if x <= n_x && y <= n_y
-            state_vec = @view states_array[x, y, atom_type, :]
-
-            energy::Float32 = tri_product(state_vec, a_mat, state_vec) - (
-                mag_field[1] * state_vec[1] +
-                mag_field[2] * state_vec[2] +
-                mag_field[3] * state_vec[3]
-            )
-            for i = 1:neigh_type_num
-                j_mat = @view j_array[:, :, i]
-                x_diff, y_diff, target_type = @view idx_mat[i, :]
-                x_target, y_target = target_idx(
-                    x,
-                    y,
-                    x_diff,
-                    y_diff,
-                    n_x,
-                    n_y
-                )
-                neigh_state_vec = @view states_array[x_target, y_target, target_type, :]
-
-                energy += tri_product(
-                    state_vec,
-                    j_mat,
-                    neigh_state_vec
-                )
-            end
-
-            energy_array[x, y, atom_type] = energy
-        end
-
-        return nothing
+        kernel! = site_energy_kernel!(backend)
+        kernel!(
+            energy_array,
+            states_array,
+            point_idx_array,
+            interact_coeff_array,
+            magnetic_field,
+            ndrange=site_size
+        )
     end
 
-    function measure_energy(
-        states_array,
-        mag_field_tuple,
-        a_tuple,
-        j_tuple,
-        idx_tuple,
-        threads_tuple,
-        blocks_tuple
-    )
-        n_x, n_y, atom_type_num, _ = size(states_array)
-        energy_array = CUDA.zeros(n_x, n_y, atom_type_num)
-        for (
-            atom_type, 
-            (mag_field, a_mat, j_array, idx_mat)
-        ) in enumerate(zip(mag_field_tuple, a_tuple, j_tuple, idx_tuple))
-            @cuda threads=threads_tuple blocks=blocks_tuple site_energy!(
-                energy_array,
-                states_array,
-                mag_field,
-                a_mat,
-                j_array,
-                idx_mat,
-                atom_type
-            )
-        end
+    function energy_mean(
+        states_array::AbstractArray{T},
+        point_idx_array::AbstractArray{Int},
+        interact_coeff_array::AbstractArray{T},
+        magnetic_field::AbstractVector{T}
+    ) where T
+        site_size = size(states_array)[1:3]
+        backend = get_backend(states_array)
+        energy_array = KAzeros(backend, T, site_size...)
 
-        return sum(energy_array)/2
+        site_energy!(
+            energy_array,
+            states_array,
+            point_idx_array,
+            interact_coeff_array,
+            magnetic_field
+        )
+
+        return mean(energy_array)
     end
 end

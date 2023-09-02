@@ -4,7 +4,7 @@ module MCFlip
     using KernelAbstractions: @kernel, @index, get_backend
 
 
-    const MU_B = 0.5f0
+    const MU_B::Float32 = 0.5f0
 
     export rand_states!, site_energy!, get_point_states!, try_flip!
 
@@ -51,8 +51,8 @@ module MCFlip
         n_p = size(interact_coeff_array, 2)
 
         if check_array[idx_site]
-            @inbounds raw_state = @view states_array[idx_x, idx_y, idx_t, :]
-            @inbounds try_state = @view rand_states_array[idx_x, idx_y, idx_t, :]
+            @inbounds raw_state = @view states_array[idx_site, :]
+            @inbounds try_state = @view rand_states_array[idx_site, :]
 
             # init two energies
             raw_energy = zero(eltype(states_array))
@@ -82,7 +82,7 @@ module MCFlip
             delta_energy = try_energy - raw_energy
             if delta_energy < 0 || rand() < exp(-delta_energy/temperature)
                 for idx_pos = 1:3
-                    @inbounds states_array[idx_site, idx_pos] = rand_states_array[idx_site, idx_pos]
+                    @inbounds raw_state[idx_pos] = try_state[idx_pos]
                 end
             end
         end

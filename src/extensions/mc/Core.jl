@@ -3,10 +3,15 @@ module MCCore
 using ProgressMeter: Progress, next!
 using KernelAbstractions: synchronize, CPU, copyto!
 using KernelAbstractions: zeros as KAzeros
+using Unitful: @u_str, ustrip
+using UnitfulAtomic: auconvert
+using Statistics: mean
+using Printf: @sprintf
 
 using ..MCTypes
 using ..MCUtils
 using ..MCFlip
+using ..MCMeasure
 
 function mcmc(
     lattice::Lattice{T},
@@ -49,6 +54,8 @@ function mcmc(
         end
         for color in colors, type_idx = 1:n_type
     ]
+    temp_kelvin_str = @sprintf("%.4f", ustrip(auconvert(u"K", temperature)))
+    @info "Start equilibration progress under $(temp_kelvin_str) K."
     p = Progress(
         mcmethod.step_equilibration_num;
         showspeed=true,
@@ -72,8 +79,46 @@ function mcmc(
 
         next!(p)
     end
+    @info "Start mearsuring progress under $(temp_kelvin_str) K."
+    p = Progress(
+        mcmethod.step_measure_num;
+        showspeed=true,
+        enabled=progress_enabled
+    )
+    mag_mean_vec = zeros(T, mcmethod.step_measure_num)
+    energy_mean_vec = zeros(T, mcmethod.step_measure_num)
+    for idx_measure = 1:mcmethod.step_measure_num
+        rand_states!(rand_states_array)
+        synchronize(backend)
+        for check_array in check_array_mat
+            try_flip!(
+                states_array,
+                rand_states_array,
+                point_idx_array,
+                interact_coeff_array,
+                check_array,
+                magnetic_field,
+                temperature
+            )
+            synchronize(backend)
+        end
 
-    return states_array
+        mag_mean_vec[idx_measure] = mag_mean(states_array)
+        energy_mean_vec[idx_measure] = energy_mean(
+            states_array,
+            point_idx_array,
+            interact_coeff_array,
+            magnetic_field
+        )
+
+        next!(p)
+    end
+
+    mag = mean(mag_mean_vec)
+    susceptibility = (mean(mag_mean_vec.^2) - mean(mag_mean_vec)^2)/temperature
+    specific_heat = (mean(energy_mean_vec.^2) - mean(energy_mean_vec)^2)/temperature
+
+    return states_array, mag, susceptibility, specific_heat
 end
 
 end
