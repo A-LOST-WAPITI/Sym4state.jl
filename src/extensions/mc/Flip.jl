@@ -1,7 +1,6 @@
 module MCFlip
     using ..MCTypes
 
-    using CUDA
     using KernelAbstractions: @kernel, @index, get_backend
 
 
