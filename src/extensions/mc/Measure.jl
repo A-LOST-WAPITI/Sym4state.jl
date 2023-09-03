@@ -50,6 +50,8 @@ module MCMeasure
                 @inbounds energy += state[i] * interact_coeff_mat[i, j] * point_state[j]
             end
         end
+
+        energy_array[idx_x, idx_y, idx_t] = energy
     end
 
     function site_energy!(

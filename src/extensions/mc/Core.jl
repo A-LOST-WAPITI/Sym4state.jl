@@ -1,7 +1,7 @@
 module MCCore
 
 using ProgressMeter: Progress, next!
-using KernelAbstractions: synchronize, CPU, copyto!
+using KernelAbstractions: synchronize, Backend, CPU, copyto!
 using KernelAbstractions: zeros as KAzeros
 using Unitful: @u_str, ustrip
 using UnitfulAtomic: auconvert
@@ -17,7 +17,7 @@ function mcmc(
     lattice::Lattice{T},
     environment::Environment{T},
     mcmethod::MCMethod;
-    backend=CPU(),
+    backend::Backend=CPU(),
     continue_flag::Bool=false,
     prev_states_array::Union{Nothing, AbstractArray{T}}=nothing,
     progress_enabled::Bool=true
@@ -119,6 +119,51 @@ function mcmc(
     specific_heat = (mean(energy_mean_vec.^2) - mean(energy_mean_vec)^2)/temperature
 
     return states_array, mag, susceptibility, specific_heat
+end
+
+function mcmc_with_environment_change(
+    lattice::Lattice{T},
+    environment_vec::AbstractVector{Environment{T}},
+    mcmethod::MCMethod;
+    backend::Backend=CPU(),
+    progress_enabled::Bool=true
+) where T
+    states_array_vec = Vector{AbstractArray{T}}()
+    mag_vec = Vector{T}()
+    susceptibility_vec = Vector{T}()
+    specific_heat_vec = Vector{T}()
+
+    states_array, mag, susceptibility, specific_heat = mcmc(
+        lattice,
+        environment_vec[1],
+        mcmethod;
+        backend=backend,
+        progress_enabled=progress_enabled
+    )
+    push!(states_array_vec, states_array)
+    push!(mag_vec, mag)
+    push!(susceptibility_vec, susceptibility)
+    push!(specific_heat_vec, specific_heat)
+
+    for environment in environment_vec[2:end]
+        states_array, mag, susceptibility, specific_heat = mcmc(
+            lattice,
+            environment,
+            mcmethod;
+            backend=backend,
+            progress_enabled=progress_enabled,
+            continue_flag=false,
+            prev_states_array=states_array
+        )
+
+        push!(states_array_vec, states_array)
+        push!(mag_vec, mag)
+        push!(susceptibility_vec, susceptibility)
+        push!(specific_heat_vec, specific_heat)
+    end
+
+    states_change_array = stack(states_array_vec, dims=1)
+    return states_change_array, mag_vec, susceptibility_vec, specific_heat_vec
 end
 
 end
