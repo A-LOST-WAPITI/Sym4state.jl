@@ -57,11 +57,11 @@ function mcmc(
     temp_kelvin_str = @sprintf("%.4f", ustrip(auconvert(u"K", temperature)))
     @info "Start equilibration progress under $(temp_kelvin_str) K."
     p = Progress(
-        mcmethod.step_equilibration_num;
+        mcmethod.equilibration_step_num;
         showspeed=true,
         enabled=progress_enabled
     )
-    for _ = 1:mcmethod.step_equilibration_num
+    for _ = 1:mcmethod.equilibration_step_num
         rand_states!(rand_states_array)
         synchronize(backend)
         for check_array in check_array_mat
@@ -81,13 +81,13 @@ function mcmc(
     end
     @info "Start mearsuring progress under $(temp_kelvin_str) K."
     p = Progress(
-        mcmethod.step_measure_num;
+        mcmethod.measuring_step_num;
         showspeed=true,
         enabled=progress_enabled
     )
-    mag_mean_vec = zeros(T, mcmethod.step_measure_num)
-    energy_mean_vec = zeros(T, mcmethod.step_measure_num)
-    for idx_measure = 1:mcmethod.step_measure_num
+    mag_mean_vec = zeros(T, mcmethod.measuring_step_num)
+    energy_mean_vec = zeros(T, mcmethod.measuring_step_num)
+    for idx_measure = 1:mcmethod.measuring_step_num
         rand_states!(rand_states_array)
         synchronize(backend)
         for check_array in check_array_mat

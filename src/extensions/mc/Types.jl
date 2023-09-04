@@ -16,8 +16,8 @@ module MCTypes
     end
 
     struct MCMethod
-        step_equilibration_num::Int
-        step_measure_num::Int
+        equilibration_step_num::Int
+        measuring_step_num::Int
         #TODO: PTMC
     end
 end

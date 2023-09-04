@@ -1,12 +1,11 @@
 module MCUtils
     using LazySets: convex_hull
     using DataStructures: DisjointSets, union!, find_root
-    using LinearAlgebra: norm, cross, transpose
-    using Rotations: RotZ
+    using LinearAlgebra: norm, cross
     using ..MCTypes
 
 
-    export domain_decompose, rotate
+    export domain_decompose
 
 
     function domain_decompose(lattice::Lattice)
@@ -90,10 +89,5 @@ module MCUtils
         end
 
         return area
-    end
-
-    function rotate(x::AbstractMatrix{T}, theta::T) where T
-        rot_mat = RotZ{T}(theta)
-        return transpose(rot_mat) * x * rot_mat
     end
 end

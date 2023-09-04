@@ -29,7 +29,7 @@ interact_coeff_array = [
             [ 0.00,  0.00,  0.00],
             [ 0.00,  0.00,  0.00],
             [ 0.00,  0.00, -0.08]
-        ]
+        ],
         [
             [-3.89,  0.00,  0.80],
             [ 0.00, -5.40,  0.00],
@@ -41,7 +41,7 @@ interact_coeff_array = [
             [ 0.00,  0.00,  0.00],
             [ 0.00,  0.00,  0.00],
             [ 0.00,  0.00, -0.08]
-        ]
+        ],
         [
             [-3.89,  0.00,  0.80],
             [ 0.00, -5.40,  0.00],
@@ -62,9 +62,10 @@ rotate_angle = [
 ]
 
 [environment]
-temperature = [600, 0]
-temperature_step = -5
-magnetic_field = [
-    [0.0, 0.0, 0.0]
-]
-magnetic_field_step = 0
+temperature = [100, 0]
+temperature_step = -20
+magnetic_field = [0.0, 0.0, 0.0]
+
+[mcmethod]
+equilibration_step_num = 100000
+measuring_step_num = 10000

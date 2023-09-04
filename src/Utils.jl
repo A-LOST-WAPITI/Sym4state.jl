@@ -136,7 +136,7 @@ module Utils
         equal_center_idx_vec = center_idx_vec[equal_pair_idx_vec]
         equal_points_idx_vec = points_idx_vec[equal_pair_idx_vec]
 
-        @info "Equal pairs are shown as follow:"
+        @info "Equal pairs are shown as follows:"
         for (center_idx, point_idx) in zip(equal_center_idx_vec, equal_points_idx_vec)
             @info "$(center_idx) <=> $(point_idx)"
         end
