@@ -2,9 +2,9 @@ module MCTypes
     export Lattice, Environment, MCMethod
 
     mutable struct Lattice{T<:AbstractFloat}
-        size::NTuple{2, Int}
+        size::AbstractVector{Int}
         cell_mat::AbstractMatrix{T}
-        offset_array::AbstractMatrix{T}
+        offset_mat::AbstractMatrix{T}
         magmom_vector::AbstractVector{T}
         point_idx_array::AbstractArray{Int, 3}
         interact_coeff_array::AbstractArray{T, 4}
