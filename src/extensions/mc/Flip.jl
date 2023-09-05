@@ -4,8 +4,6 @@ module MCFlip
     using KernelAbstractions: @kernel, @index, get_backend
 
 
-    const MU_B::Float32 = 0.5f0
-
     export rand_states!, site_energy!, get_point_states!, try_flip!
 
     @kernel function rand_states_kernel!(states_array)
@@ -42,6 +40,7 @@ module MCFlip
         @Const(point_idx_array),
         @Const(interact_coeff_array),
         @Const(check_array),
+        @Const(magmom_vector),
         @Const(magnetic_field),
         @Const(temperature)
     )
@@ -60,15 +59,15 @@ module MCFlip
 
             # energy from magnetic field
             for idx_pos = 1:3
-                @inbounds raw_energy += MU_B * magnetic_field[idx_pos] * raw_state[idx_pos]
-                @inbounds try_energy += MU_B * magnetic_field[idx_pos] * try_state[idx_pos]
+                @inbounds raw_energy += magmom_vector[idx_t] * magnetic_field[idx_pos] * raw_state[idx_pos]
+                @inbounds try_energy += magmom_vector[idx_t] * magnetic_field[idx_pos] * try_state[idx_pos]
             end
             # energy from interacting
             for idx_p = 1:n_p
-                @inbounds point_diff = @view point_idx_array[idx_t, idx_p, :]
-                target_idx_x = mod1(idx_x + point_diff[1], n_x)
-                target_idx_y = mod1(idx_y + point_diff[2], n_y)
-                target_idx_t = point_diff[3]
+                @inbounds point_idx = @view point_idx_array[idx_t, idx_p, :]
+                target_idx_x = mod1(idx_x + point_idx[1], n_x)
+                target_idx_y = mod1(idx_y + point_idx[2], n_y)
+                target_idx_t = point_idx[3]
 
                 @inbounds interact_coeff_mat = @view interact_coeff_array[idx_t, idx_p, :, :]
                 @inbounds point_state = @view states_array[target_idx_x, target_idx_y, target_idx_t, :]
@@ -94,6 +93,7 @@ module MCFlip
         point_idx_array,
         interact_coeff_array,
         check_array,
+        magmom_vector,
         magnetic_field,
         temperature
     )
@@ -107,6 +107,7 @@ module MCFlip
             point_idx_array,
             interact_coeff_array,
             check_array,
+            magmom_vector,
             magnetic_field,
             temperature,
             ndrange=site_size

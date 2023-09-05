@@ -35,6 +35,8 @@ function mcmc(
     copyto!(backend, interact_coeff_array, lattice.interact_coeff_array)
     point_idx_array = KAzeros(backend, Int, n_type, n_pair, 3)
     copyto!(backend, point_idx_array, lattice.point_idx_array)
+    magmom_vector = KAzeros(backend, T, n_type)
+    copyto!(backend, magmom_vector, lattice.magmom_vector)
     magnetic_field = KAzeros(backend, T, 3)
     copyto!(backend, magnetic_field, environment.magnetic_field)
     temperature = environment.temperature
@@ -71,6 +73,7 @@ function mcmc(
                 point_idx_array,
                 interact_coeff_array,
                 check_array,
+                magmom_vector,
                 magnetic_field,
                 temperature
             )
@@ -97,6 +100,7 @@ function mcmc(
                 point_idx_array,
                 interact_coeff_array,
                 check_array,
+                magmom_vector,
                 magnetic_field,
                 temperature
             )
@@ -116,7 +120,7 @@ function mcmc(
 
     mag = mean(mag_mean_vec)
     susceptibility = (mean(mag_mean_vec.^2) - mean(mag_mean_vec)^2)/temperature
-    specific_heat = (mean(energy_mean_vec.^2) - mean(energy_mean_vec)^2)/temperature
+    specific_heat = (mean(energy_mean_vec.^2) - mean(energy_mean_vec)^2)/temperature^2
 
     return states_array, mag, susceptibility, specific_heat
 end
@@ -152,7 +156,7 @@ function mcmc_with_environment_change(
             mcmethod;
             backend=backend,
             progress_enabled=progress_enabled,
-            continue_flag=false,
+            continue_flag=true,
             prev_states_array=states_array
         )
 

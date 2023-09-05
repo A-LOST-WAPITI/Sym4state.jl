@@ -9,6 +9,9 @@ module MCExternal
     using ..MCUtils
 
 
+    const MU_B::Float32 = 0.5f0
+
+
     function rotate(x::AbstractMatrix{T}, theta::T) where T
         rot_mat = RotZ{T}(theta)
         return transpose(rot_mat) * x * rot_mat
@@ -118,7 +121,7 @@ module MCExternal
         # get environment parameters
         temperature_vec::Vector{T} = config["environment"]["temperature"]
         temperature_step::T = config["environment"]["temperature_step"]
-        magnetic_field::Vector{T} = config["environment"]["magnetic_field"]
+        magnetic_field::Vector{T} = MU_B * config["environment"]["magnetic_field"]
         if iszero(temperature_step)
             environment = Environment{T}(
                 temperature_vec[1] * u"K" |> auconvert |> austrip,
