@@ -3,6 +3,7 @@ module Sym4state
     include("Python.jl")
     include("Utils.jl")
     include("Core.jl")
+    include("extensions/mc/MC.jl")
 
 
     using .ModCore
