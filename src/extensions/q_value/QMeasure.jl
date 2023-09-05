@@ -1,31 +1,9 @@
 module QMeasure
-    using DelimitedFiles
     using LinearAlgebra
-    using HDF5
-    using Printf
 
 
-    # TODO: following variables as parameters
-    # const all_upper_triangle_idx = [
-    #     [
-    #         [1, 0, 1],
-    #         [1, 1, 1]
-    #     ],
-    # ]
-    # const all_lower_triangle_idx = [
-    #     [
-    #         [0, -1, 1],
-    #         [-1, -1, 1]
-    #     ]
-    # ]
-    # const DATA_DIR = "data/"
+    export q_value
 
-    function target_idx(x, y, x_diff, y_diff, n_x, n_y)
-        x_target = mod1(x + x_diff, n_x)
-        y_target = mod1(y + y_diff, n_y)
-
-        return x_target, y_target
-    end
 
     function q_density(si, sj, sk)
         return 2atan(
@@ -35,74 +13,32 @@ module QMeasure
         )
     end
 
-    function julia_main()
-        raw_states_array = h5read(DATA_DIR * "states.h5", "all_states")
-        temp_kelvin_vec = h5read(DATA_DIR * "states.h5", "temp_vec")
-        @assert size(raw_states_array, 3) == length(all_upper_triangle_idx)
-        @assert size(raw_states_array, 3) == length(all_lower_triangle_idx)
-        x_lim, y_lim, _ = size(raw_states_array)
+    function q_value(states_array::AbstractArray{T, 4}) where T
+        temp_states_array = Array(states_array) # use Array
+        n_x, n_y, n_t, _ = size(states_array)
+        q_density_array = zeros(T, n_x, n_y, n_t)
+        for idx_t = 1:n_t
+            type_states_array = @view temp_states_array[idx_t, :, :, :]
+            for idx_x = 1:idx_x, idx_y = 1:n_y
+                idx_x_p = mod1(idx_x - 1, n_x)
+                idx_x_n = mod1(idx_x + 1, n_x)
+                idx_y_p = mod1(idx_y - 1, n_y)
+                idx_y_n = mod1(idx_y + 1, n_y)
 
-        q_mat = zeros(length(temp_kelvin_vec), size(raw_states_array, 3))
-        for temp_idx in eachindex(temp_kelvin_vec)
-            states_array = raw_states_array[:, :, :, :, temp_idx]
-
-            for atom_type in axes(states_array, 3)
-                q_value = 0
-                upper_triangle_idx = all_upper_triangle_idx[atom_type]
-                lower_triangle_idx = all_lower_triangle_idx[atom_type]
-
-                for i in axes(states_array, 1), j in axes(states_array, 2)
-                    q_value += q_density(
-                        states_array[i, j, atom_type, :],
-                        states_array[
-                            target_idx(
-                                i, j,
-                                upper_triangle_idx[1][1], upper_triangle_idx[1][2],
-                                x_lim, y_lim
-                            )..., upper_triangle_idx[1][3], 1:3
-                        ],
-                        states_array[
-                            target_idx(
-                                i, j,
-                                upper_triangle_idx[2][1], upper_triangle_idx[2][2],
-                                x_lim, y_lim
-                            )..., upper_triangle_idx[2][3], 1:3
-                        ]
-                    ) + q_density(
-                        states_array[i, j, atom_type, :],
-                        states_array[
-                            target_idx(
-                                i, j,
-                                lower_triangle_idx[1][1], lower_triangle_idx[1][2],
-                                x_lim, y_lim
-                            )..., lower_triangle_idx[1][3], 1:3
-                        ],
-                        states_array[
-                            target_idx(
-                                i, j,
-                                lower_triangle_idx[2][1], lower_triangle_idx[2][2],
-                                x_lim, y_lim
-                            )..., lower_triangle_idx[2][3], 1:3
-                        ]
-                    )
-                end
-
-                q_mat[temp_idx, atom_type] = q_value/4pi
+                q_density_array[idx_t, idx_x, idx_y] = q_density(
+                    type_states_array[idx_x, idx_y, :],
+                    type_states_array[idx_x_n, idx_y, :],
+                    type_states_array[idx_x_n, idx_y_n, :],
+                ) + q_density(
+                    type_states_array[idx_x, idx_y, :],
+                    type_states_array[idx_x_p, idx_y, :],
+                    type_states_array[idx_x_p, idx_y_p, :],
+                )
             end
         end
 
-        writedlm(
-            DATA_DIR * "q_value.dat",
-            hcat(
-                temp_kelvin_vec .|> (x -> @sprintf("%4.1f", x)),
-                q_mat .|> (x -> @sprintf("%10.5f", x))
-            )
-        )
+        q_value_vec = sum(q_density_array, dims=(2, 3))/(4 * pi)
+
+        return q_value_vec
     end
-end
-
-
-# 如果使用脚本模式运行则自动运行`julia_main`函数
-if abspath(PROGRAM_FILE) == @__FILE__
-    julia_main()
 end
