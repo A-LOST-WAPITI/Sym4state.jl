@@ -25,7 +25,7 @@ module MCUtils
         if size_fix_flag
             x_lattice = len_fix(lattice.size[1], hull_area)
             y_lattice = len_fix(lattice.size[2], hull_area)
-            lattice.size = (x_lattice, y_lattice)
+            lattice.size = [x_lattice, y_lattice]
             @info "Size of the lattice has been fixed to $(x_lattice)x$(y_lattice)."
         else
             x_lattice, y_lattice = lattice.size

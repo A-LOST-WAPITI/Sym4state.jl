@@ -112,6 +112,7 @@ function mcmc(
             states_array,
             point_idx_array,
             interact_coeff_array,
+            magmom_vector,
             magnetic_field
         )
 

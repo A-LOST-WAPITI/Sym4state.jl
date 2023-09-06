@@ -4,7 +4,6 @@ module MCMeasure
     using KernelAbstractions: @kernel, @index, get_backend
     using KernelAbstractions: zeros as KAzeros
 
-    const MU_B::Float32 = 0.5f0
 
     export mag_mean, energy_mean
 
@@ -21,6 +20,7 @@ module MCMeasure
         @Const(states_array),
         @Const(point_idx_array),
         @Const(interact_coeff_array),
+        @Const(magmom_vector),
         @Const(magnetic_field),
     )
         idx_x, idx_y, idx_t = @index(Global, NTuple)
@@ -34,7 +34,7 @@ module MCMeasure
 
         # energy from magnetic field
         for idx_pos = 1:3
-            @inbounds energy += MU_B * magnetic_field[idx_pos] * state[idx_pos]
+            @inbounds energy += magmom_vector[idx_t] * magnetic_field[idx_pos] * state[idx_pos]
         end
         # energy from interacting
         for idx_p = 1:n_p
@@ -59,6 +59,7 @@ module MCMeasure
         states_array,
         point_idx_array,
         interact_coeff_array,
+        magmom_vector,
         magnetic_field,
     )
         site_size = size(energy_array)
@@ -70,6 +71,7 @@ module MCMeasure
             states_array,
             point_idx_array,
             interact_coeff_array,
+            magmom_vector,
             magnetic_field,
             ndrange=site_size
         )
@@ -79,6 +81,7 @@ module MCMeasure
         states_array::AbstractArray{T},
         point_idx_array::AbstractArray{Int},
         interact_coeff_array::AbstractArray{T},
+        magmom_vector::AbstractVector{T},
         magnetic_field::AbstractVector{T}
     ) where T
         site_size = size(states_array)[1:3]
@@ -90,6 +93,7 @@ module MCMeasure
             states_array,
             point_idx_array,
             interact_coeff_array,
+            magmom_vector,
             magnetic_field
         )
 
