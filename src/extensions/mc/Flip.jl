@@ -27,11 +27,11 @@ module MCFlip
         @assert length(array_shape) == 4
         @assert array_shape[4] == 3
 
-        spin_size = array_shape[1:3]
+        site_size = array_shape[1:3]
         backend = get_backend(states_array)
 
         kernel! = rand_states_kernel!(backend)
-        kernel!(states_array, ndrange=spin_size)
+        kernel!(states_array, ndrange=site_size)
     end
 
     @kernel function try_flip_kernel!(
@@ -49,6 +49,7 @@ module MCFlip
         n_x, n_y, _, _ = size(states_array)
         n_p = size(interact_coeff_array, 2)
 
+        # only give a try on sites those could be checked parallelly
         if check_array[idx_site]
             @inbounds raw_state = @view states_array[idx_site, :]
             @inbounds try_state = @view rand_states_array[idx_site, :]
@@ -59,14 +60,14 @@ module MCFlip
 
             # energy from magnetic field
             for idx_pos = 1:3
-                @inbounds raw_energy += magmom_vector[idx_t] * magnetic_field[idx_pos] * raw_state[idx_pos]
-                @inbounds try_energy += magmom_vector[idx_t] * magnetic_field[idx_pos] * try_state[idx_pos]
+                @inbounds raw_energy -= magmom_vector[idx_t] * magnetic_field[idx_pos] * raw_state[idx_pos]
+                @inbounds try_energy -= magmom_vector[idx_t] * magnetic_field[idx_pos] * try_state[idx_pos]
             end
             # energy from interacting
             for idx_p = 1:n_p
                 @inbounds point_idx = @view point_idx_array[idx_t, idx_p, :]
-                target_idx_x = mod1(idx_x + point_idx[1], n_x)
-                target_idx_y = mod1(idx_y + point_idx[2], n_y)
+                target_idx_x = mod1(idx_x + point_idx[1], n_x)  # PBC
+                target_idx_y = mod1(idx_y + point_idx[2], n_y)  # PBC
                 target_idx_t = point_idx[3]
 
                 @inbounds interact_coeff_mat = @view interact_coeff_array[idx_t, idx_p, :, :]
