@@ -180,7 +180,9 @@ module Utils
 
         # there exists multiple pairs between center atom and one point atom
         if length(unique(consider_idx_vec)) != length(consider_idx_vec)
-            error("Given supercell is not large enough for target atom pair $(target_idx_vec).")
+            error(
+                "Given supercell is not large enough " *
+                "for calculating all interactions within a cutoff radius of $(cutoff_radius) Å.")
         end
 
         pair_ds = DisjointSets(consider_idx_vec)
