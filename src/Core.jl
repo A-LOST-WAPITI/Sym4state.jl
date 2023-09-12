@@ -1,6 +1,7 @@
 module ModCore
     using ProgressMeter
     using FileIO
+    using DataStructures: IntDisjointSets, union!
     using ..Utils
     using ..Types
 
@@ -9,34 +10,42 @@ module ModCore
 
 
     function sym4state(
-        filepath,
-        supercell_size,
+        py_struc,
         mag_num_vec,
-        target_idx_vec;
+        supercell_size,
+        cutoff_radius;
         atol=1e-2,
         symprec=1e-2,
         angle_tolerance=5.0,
-        show_progress_bar=true
+        show_progress_bar=true,
+        center_idx=1
     )
         @info "Absolute tolrance is set to $(atol)"
         @info "Symmetry precision is set to $(symprec)"
-        py_struc = get_py_struc(filepath)
 
-        spg_num, sym_op_vec = get_sym_op_vec(
+        spg_num, sym_op_vec, py_refined_struc = get_sym_op_vec(
             py_struc,
             symprec=symprec,
             angle_tolerance=angle_tolerance
         )
+        py_refined_struc.make_supercell(supercell_size)
         @info "The space group number of given structure is $(spg_num) with given `symprec`"
+        
+        pair_ds, pair_relation_dict = equal_pair(
+            py_refined_struc,
+            mag_num_vec,
+            center_idx,
+            cutoff_radius,
+            sym_op_vec
+        )
 
-        equal_pair(py_struc, supercell_size, spg_num, mag_num_vec, target_idx_vec)
-
-        struc_vec = get_all_j_struc_vec(py_struc, mag_num_vec, target_idx_vec)
+        # TODO: Check different pair and compare them to find the minimum
+        struc_vec = get_all_j_struc_vec(py_refinded_struc, mag_num_vec, target_idx_vec)
         mag_struc_vec = [magonly(struc, mag_num_vec) for struc in struc_vec]
 
         @info "Reducing 4-state J matrix..."
         unique_mag_struc_vec = Struc[]
-        fallback = FallbackList(36)
+        fallback_ds = IntDisjointSets(36)
         p = Progress(
             length(mag_struc_vec) * length(sym_op_vec);
             showspeed=true,
@@ -51,15 +60,17 @@ module ModCore
                 para_lock = Threads.SpinLock()
                 Threads.@threads for mag_struc_occur in unique_mag_struc_vec
                     target_uni_num = mag_struc_occur.uni_num
-                    if source_uni_num != target_uni_num && isapprox(
+                    approx_flag, _ = struc_compare(
                         mag_struc_after_op,
                         mag_struc_occur,
                         atol=atol
                     )
+                    if source_uni_num != target_uni_num && approx_flag
                         Threads.lock(para_lock) do
                             occur_flag = true
 
-                            fallback(
+                            union!(
+                                fallback_ds,
                                 source_uni_num,
                                 target_uni_num
                             )
@@ -78,7 +89,7 @@ module ModCore
             end
         end
 
-        map = Map(fallback, struc_vec)
+        map = Map(fallback_ds, struc_vec)
 
         @info "Saving the reduced map into \"Map.jld2\"..."
         save(
@@ -93,25 +104,30 @@ module ModCore
 
 
     function pre_process(
-        poscar_path,
-        supercell_size,
+        filepath,
         mag_num_vec,
-        target_idx_vec;
+        supercell_size,
+        cutoff_radius;
         atol=1e-2,
         symprec=1e-2,
         angle_tolerance=5.0,
+        show_progress_bar=true,
+        center_idx=1,
         incar_path="./INCAR",
         potcar_path="./POTCAR",
         kpoints_path="./KPOINTS"
     )
+        py_struc = get_py_struc(filepath)
         map = sym4state(
-            poscar_path,
-            supercell_size,
+            py_struc,
             mag_num_vec,
-            target_idx_vec;
+            supercell_size,
+            cutoff_radius;
             atol=atol,
             symprec=symprec,
-            angle_tolerance=angle_tolerance
+            angle_tolerance=angle_tolerance,
+            show_progress_bar=show_progress_bar,
+            center_idx=center_idx
         )
 
         to_vasp_inputs(

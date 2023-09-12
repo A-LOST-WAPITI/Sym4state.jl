@@ -5,6 +5,7 @@ module Types
     using PeriodicTable
     using Printf
     using CellListMap
+    using DataStructures: IntDisjointSets, find_root!
 
 
     export Struc, SymOp, FallbackList, Map
@@ -121,27 +122,6 @@ module Types
     end
 
     Base.length(struc::Struc) = struc.atom_count
-
-    Base.isapprox(x::Struc, y::Struc; atol=1e-2) = begin
-        approx_flag = true
-
-        for one_atom in x
-            occur_flag = false
-            for another_atom in y
-                if isapprox(one_atom, another_atom, atol=atol)
-                    occur_flag = true
-                    break
-                end
-            end
-
-            if !occur_flag
-                approx_flag = false
-                break
-            end
-        end
-
-        return approx_flag
-    end
 
     function Base.show(io::IO, ::MIME"text/plain", struc::Struc)
         println(io, "Structure Summary:")
@@ -263,42 +243,21 @@ module Types
     Base.show(io::IO, sym_op::SymOp) = show(io, "text/plain", sym_op)
 
 
-    struct FallbackList
-        len::Int64
-        tree::Vector
-    end
-    FallbackList(len::Int64) = FallbackList(len, zeros(Int64, len))
-    function (fallback::FallbackList)(idx::Int64)
-        @assert idx <= fallback.len
-
-        parent_idx = fallback.tree[idx]
-        if iszero(parent_idx)
-            return idx
-        else
-            fallback(parent_idx)
-        end
-    end
-
-    function (fallback::FallbackList)(idx, target_idx)
-        @assert 0 < idx <= fallback.len
-        @assert 0 < target_idx <= fallback.len
-
-        former_target = fallback.tree[idx]
-        if iszero(former_target) || former_target > target_idx
-            fallback.tree[idx] = target_idx
-        end
-    end
-
-
     struct Map
         map_mat::Matrix{Vector{Int8}}
         fallback_vec::Vector{Int8}
         struc_vec::Vector{Struc}
     end
 
-    function Map(fallback::FallbackList, all_struc_vec::Vector{Struc})
+    function Map(fallback_ds::IntDisjointSets, all_struc_vec::Vector{Struc})
         map_mat = [zeros(Int8, 4) for _ = 1:3, _ = 1:3]
-        temp = eachslice(reshape(fallback.(1:36), (4, 3, 3)), dims=(2, 3))
+        temp = eachslice(
+            reshape(
+                [find_root!(fallback_ds, idx) for idx = 1:36],
+                (4, 3, 3)
+            ),
+            dims=(2, 3)
+        )
 
         for idx in eachindex(temp)
             element_comp = temp[idx]

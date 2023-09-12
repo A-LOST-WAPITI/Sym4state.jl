@@ -4,11 +4,13 @@ module Utils
     using DelimitedFiles
     using PythonCall
     using Printf
+    using CellListMap: neighborlist
+    using DataStructures: DisjointSets, find_root!, num_groups
     using ..Types
     using ..Python
 
 
-    export get_all_j_struc_vec, to_vasp_inputs, equal_pair, get_py_struc, get_sym_op_vec, get_j_mat
+    export get_all_j_struc_vec, to_vasp_inputs, equal_pair, get_py_struc, get_sym_op_vec, get_j_mat, struc_compare
 
 
     include("data/CovalentRadius.jl")
@@ -88,8 +90,62 @@ module Utils
         
     end
 
+    function struc_compare(x::Struc, y::Struc; atol=1e-2)
+        approx_flag = true
 
-    function equal_pair(py_struc, supercell_size, spg_num, mag_num_vec, target_idx_vec)
+        corresponding_dict = Dict{Int, Int}()
+        for (one_atom_idx, one_atom) in enumerate(x)
+            occur_flag = false
+            for (another_atom_idx, another_atom) in enumerate(y)
+                if isapprox(one_atom, another_atom, atol=atol)
+                    occur_flag = true
+                    corresponding_dict[another_atom_idx] = one_atom_idx
+                    break
+                end
+            end
+
+            if !occur_flag
+                approx_flag = false
+                break
+            end
+        end
+
+        return approx_flag, corresponding_dict
+    end
+
+    function consider_idx_in_radius(struc::Struc, center_idx, cutoff_radius)
+        frac_pos_mat = struc.pos_mat
+        cell_mat = struc.lattice_mat
+        cart_pos_mat = cell_mat * frac_pos_mat
+        neighbor_list = neighborlist(
+            eachcol(cart_pos_mat),
+            cutoff_radius,
+            unitcell=cell_mat,
+            parallel=true
+        )
+
+        consider_idx_vec = Int[]
+        for pair in neighbor_list
+            bond_ends_set = Set(pair[1:2])
+            if center_idx in bond_ends_set
+                push!(
+                    consider_idx_vec,
+                    pop!(setdiff(bond_ends_set, center_idx))
+                )
+            end
+        end
+
+        return consider_idx_vec
+    end
+
+    function equal_pair(
+        py_struc,
+        mag_num_vec,
+        center_idx,
+        cutoff_radius,
+        sym_op_vec;
+        atol=1e-2
+    )
         # remove all nonmagnetic atoms for only considering pairs between
         # magnetic atoms
         py_mag_struc = py_struc.copy()
@@ -97,52 +153,95 @@ module Utils
         nonmag_idx_vec = findall([!(num in mag_num_vec) for num in num_vec]) .- 1
         py_mag_struc.remove_sites(PyList(nonmag_idx_vec))
 
-        cutoff = ceil(pyconvert(
-            Float64,
-            py_mag_struc.get_distance((target_idx_vec .- 1)...)
-        ))  # get the length of given atom pair
-        (
-            py_center_indices,
-            py_points_indices,
-            _,
-            _,
-            py_symmetry_indices,
-            _
-        ) = py_mag_struc.get_symmetric_neighbor_list(
-            cutoff,
-            spg_num,
-            numerical_tol=1e-2,
-            exclude_self=true,
-            unique=false
-        )
-        center_idx_vec = pyconvert(Vector, py_center_indices) .+ 1
-        points_idx_vec = pyconvert(Vector, py_points_indices) .+ 1
-        symmetry_idx_vec = pyconvert(Vector{Int64}, py_symmetry_indices)
+        py_lattice_mat = py_mag_struc.lattice.matrix
+        py_pos_mat = py_mag_struc.frac_coords
+        py_num_vec = py_mag_struc.atomic_numbers
 
-        target_center_idx_vec = findall(==(target_idx_vec[1]), center_idx_vec)
-        target_points_idx_vec = findall(==(target_idx_vec[2]), points_idx_vec)
-        target_pair_idx_vec = intersect(target_center_idx_vec, target_points_idx_vec)
-        if length(target_pair_idx_vec) > 1
-            error("Given supercell $(supercell_size) is not large enough for target atom pair $(target_idx_vec).")
-        else
-            target_pair_idx = target_pair_idx_vec[1]
+        lattice_mat = permutedims(
+            pyconvert(Matrix{Float64}, py_lattice_mat),
+            (2, 1)
+        )
+        pos_mat = permutedims(
+            pyconvert(Matrix{Float64}, py_pos_mat),
+            (2, 1)
+        )
+        pos_mat = mod1.(pos_mat, 1)
+        num_vec = pyconvert(Vector{Int64}, py_num_vec)
+        spin_mat = zero(pos_mat)
+
+        mag_struc = Struc(
+            1,  # dummy idx for not recording relations between structures
+            lattice_mat,
+            num_vec,
+            pos_mat,
+            spin_mat
+        )
+        consider_idx_vec = consider_idx_in_radius(mag_struc, center_idx, cutoff_radius)
+
+        # there exists multiple pairs between center atom and one point atom
+        if length(unique(consider_idx_vec)) != length(consider_idx_vec)
+            error("Given supercell is not large enough for target atom pair $(target_idx_vec).")
         end
 
-        sym_idx = symmetry_idx_vec[target_pair_idx]
-        equal_pair_idx_vec = intersect(
-            target_center_idx_vec,
-            findall(==(sym_idx), symmetry_idx_vec)
-        )
-        equal_center_idx_vec = center_idx_vec[equal_pair_idx_vec]
-        equal_points_idx_vec = points_idx_vec[equal_pair_idx_vec]
+        pair_ds = DisjointSets(consider_idx_vec)
+        pair_relation_dict = Dict{Set{Int}, SymOp}()
+        for sym_op in sym_op_vec
+            mag_struc_after_op = sym_op * mag_struc
 
-        @info "Equal pairs are shown as follows:"
-        for (center_idx, point_idx) in zip(equal_center_idx_vec, equal_points_idx_vec)
-            @info "$(center_idx) <=> $(point_idx)"
+            # without considering spin, those two structures should be approximate
+            _, corresponding_dict = struc_compare(
+                mag_struc,
+                mag_struc_after_op,
+                atol=atol
+            )
+
+            center_after_op_idx = corresponding_dict[center_idx]
+            if center_after_op_idx == center_idx    # linked by a proper rotation
+                for idx in consider_idx_vec
+                    raw_idx = corresponding_dict[idx]
+                    if raw_idx in consider_idx_vec
+                        union!(
+                            pair_ds,
+                            raw_idx,
+                            idx
+                        )
+                        corresponding_set = Set([raw_idx, idx])
+                        if !haskey(pair_relation_dict, corresponding_set)
+                            pair_relation_dict[corresponding_set] = sym_op
+                        end
+                    end
+                end
+            elseif center_after_op_idx in consider_idx_vec  # linked by an improper rotation
+                for idx in consider_idx_vec
+                    raw_idx = corresponding_dict[idx]
+                    if raw_idx == center_idx
+                        union!(
+                            pair_ds,
+                            center_after_op_idx,
+                            idx
+                        )
+                        corresponding_set = Set([center_after_op_idx, idx])
+                        if !haskey(pair_relation_dict, corresponding_set)
+                            pair_relation_dict[corresponding_set] = sym_op
+                        end
+                    end
+                end
+            end
         end
 
-        # TODO: Is there any proper way to restore those relations?
-        return nothing
+        ngroups = num_groups(pair_ds)
+        @info "There are $(ngroups) different type(s) of pairs."
+        group_parents = unique(pair_ds.internal.parents)
+        for (parent_idx, parent) in enumerate(group_parents)
+            @info "For the $(parent_idx)th group, qual pairs are shown as follows:"
+            for point_idx in consider_idx_vec
+                if find_root!(pair_ds, point_idx) == parent
+                    @info "$(center_idx) <=> $(point_idx)"
+                end
+            end
+        end
+
+        return pair_ds, pair_relation_dict
     end
 
 
@@ -238,6 +337,7 @@ module Utils
             symprec=symprec,
             angle_tolerance=angle_tolerance
         )
+        refinded_py_struc = py_sga.get_refined_structure()
         
         py_sym_dict = py_sga.get_symmetry_dataset()
 
@@ -275,7 +375,7 @@ module Utils
             end
         end
 
-        return spg_num, op_vec
+        return spg_num, op_vec, refinded_py_struc
     end
 
 
