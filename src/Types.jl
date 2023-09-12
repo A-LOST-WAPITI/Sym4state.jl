@@ -198,6 +198,13 @@ module Types
         )
     end
 
+    Base.:*(op::SymOp, mat::AbstractMatrix) = begin
+        @assert size(mat) == (3, 3)
+        new_mat = op.spin_rot_mat * mat * transpose(op.spin_rot_mat)
+
+        return new_mat
+    end
+
     function Base.show(io::IO, ::MIME"text/plain", sym_op::SymOp)
         function vec2str(x)
             return "[" * join(

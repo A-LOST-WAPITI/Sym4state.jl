@@ -186,7 +186,7 @@ module Utils
         end
 
         pair_ds = DisjointSets(consider_idx_vec)
-        pair_relation_dict = Dict{Set{Int}, SymOp}()
+        pair_relation_dict = Dict{AbstractVector{Int}, SymOp}()
         for sym_op in sym_op_vec
             mag_struc_after_op = sym_op * mag_struc
 
@@ -198,7 +198,7 @@ module Utils
             )
 
             center_after_op_idx = corresponding_dict[center_idx]
-            if center_after_op_idx == center_idx    # linked by a proper rotation
+            if center_after_op_idx == center_idx    # fix the center point
                 for idx in consider_idx_vec
                     raw_idx = corresponding_dict[idx]
                     if raw_idx in consider_idx_vec
@@ -207,24 +207,9 @@ module Utils
                             raw_idx,
                             idx
                         )
-                        corresponding_set = Set([raw_idx, idx])
-                        if !haskey(pair_relation_dict, corresponding_set)
-                            pair_relation_dict[corresponding_set] = sym_op
-                        end
-                    end
-                end
-            elseif center_after_op_idx in consider_idx_vec  # linked by an improper rotation
-                for idx in consider_idx_vec
-                    raw_idx = corresponding_dict[idx]
-                    if raw_idx == center_idx
-                        union!(
-                            pair_ds,
-                            center_after_op_idx,
-                            idx
-                        )
-                        corresponding_set = Set([center_after_op_idx, idx])
-                        if !haskey(pair_relation_dict, corresponding_set)
-                            pair_relation_dict[corresponding_set] = sym_op
+                        pair_vec = [raw_idx, idx]
+                        if !haskey(pair_relation_dict, pair_vec)
+                            pair_relation_dict[pair_vec] = sym_op
                         end
                     end
                 end
@@ -333,13 +318,19 @@ module Utils
     get_py_struc(filepath::String) = py_Struc.from_file(filepath)
 
 
-    function get_sym_op_vec(py_struc; symprec=1e-2, angle_tolerance=5.0)
+    function get_sym_op_vec(py_struc, supercell_size; symprec=1e-2, angle_tolerance=5.0)
         py_sga = py_Sga(
             py_struc,
             symprec=symprec,
             angle_tolerance=angle_tolerance
         )
-        refinded_py_struc = py_sga.get_refined_structure()
+        py_refined_struc = py_sga.get_refined_structure()
+        py_refined_struc.make_supercell(supercell_size)
+        py_sga = py_Sga(
+            py_refined_struc,
+            symprec=symprec,
+            angle_tolerance=angle_tolerance
+        )
         
         py_sym_dict = py_sga.get_symmetry_dataset()
 
@@ -377,7 +368,7 @@ module Utils
             end
         end
 
-        return spg_num, op_vec, refinded_py_struc
+        return spg_num, op_vec, py_refined_struc
     end
 
 
