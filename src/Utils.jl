@@ -11,6 +11,8 @@ module Utils
 
 
     export get_all_j_struc_vec, to_vasp_inputs, equal_pair, get_py_struc, get_sym_op_vec, get_j_mat, struc_compare
+    export linear_idx_to_vec
+    export py_struc_to_struc
 
 
     include("data/CovalentRadius.jl")
@@ -46,21 +48,33 @@ module Utils
     end
 
 
-    function get_all_j_struc_vec(py_struc, mag_num_vec, target_idx_vec)
-        py_lattice_mat = py_struc.lattice.matrix
-        py_pos_mat = py_struc.frac_coords
+    function py_struc_to_struc(py_struc; idx::Int=1, spin_mat::Union{Nothing, AbstractMatrix}=nothing)
+        py_lattice_mat = py_struc.lattice.matrix.transpose()
+        py_pos_mat = py_struc.frac_coords.transpose()
         py_num_vec = py_struc.atomic_numbers
 
-        lattice_mat = permutedims(
-            pyconvert(Matrix{Float64}, py_lattice_mat),
-            (2, 1)
-        )
-        pos_mat = permutedims(
-            pyconvert(Matrix{Float64}, py_pos_mat),
-            (2, 1)
-        )
+        lattice_mat = pyconvert(Matrix{Float64}, py_lattice_mat)
+        pos_mat = pyconvert(Matrix{Float64}, py_pos_mat)
         pos_mat = mod1.(pos_mat, 1)
         num_vec = pyconvert(Vector{Int64}, py_num_vec)
+        if isa(spin_mat, Nothing)
+            spin_mat = zero(pos_mat)
+        end
+
+        struc = Struc(
+            idx,
+            lattice_mat,
+            num_vec,
+            pos_mat,
+            spin_mat
+        )
+
+        return struc
+    end
+
+
+    function get_all_j_struc_vec(struc::Struc, mag_num_vec, target_idx_vec)
+        num_vec = struc.num_vec
 
         mag_flag_vec = [(num in mag_num_vec) for num in num_vec]
         mag_count = sum(mag_flag_vec)
@@ -68,14 +82,14 @@ module Utils
 
         struc_vec = Struc[]
         for idx in axes(mag_config_array, 3)
-            spin_mat = zero(pos_mat)
+            spin_mat = zeros(3, length(num_vec))
             spin_mat[:, mag_flag_vec] .= mag_config_array[:, :, idx]
 
             struc = Struc(
                 idx,
-                lattice_mat,
-                num_vec,
-                pos_mat,
+                struc.lattice_mat,
+                struc.num_vec,
+                struc.pos_mat,
                 spin_mat
             )
 
@@ -138,6 +152,22 @@ module Utils
         return consider_idx_vec
     end
 
+    function linear_idx_to_vec(idx, supercell_size, num_pri_sites)
+        temp_len_vec = [supercell_size..., num_pri_sites]
+        idx_vec = Int[]
+        temp_idx = idx
+        for len_idx in axes(temp_len_vec, 1)
+            cell_size = prod(temp_len_vec[1:end - len_idx])
+            d_idx = (temp_idx - 1) ÷ cell_size + 1
+            temp_idx = mod1(temp_idx, cell_size)
+
+            push!(idx_vec, d_idx)
+        end
+
+        reverse!(idx_vec)
+        return idx_vec
+    end
+
     function equal_pair(
         py_struc,
         mag_num_vec,
@@ -150,32 +180,10 @@ module Utils
         # magnetic atoms
         py_mag_struc = py_struc.copy()
         num_vec = pyconvert(Vector, py_struc.atomic_numbers)
-        nonmag_idx_vec = findall([!(num in mag_num_vec) for num in num_vec]) .- 1
-        py_mag_struc.remove_sites(PyList(nonmag_idx_vec))
+        nonmag_idx_vec = setdiff(unique(num_vec), mag_num_vec)
+        py_mag_struc.remove_species(PyList(nonmag_idx_vec))
 
-        py_lattice_mat = py_mag_struc.lattice.matrix
-        py_pos_mat = py_mag_struc.frac_coords
-        py_num_vec = py_mag_struc.atomic_numbers
-
-        lattice_mat = permutedims(
-            pyconvert(Matrix{Float64}, py_lattice_mat),
-            (2, 1)
-        )
-        pos_mat = permutedims(
-            pyconvert(Matrix{Float64}, py_pos_mat),
-            (2, 1)
-        )
-        pos_mat = mod1.(pos_mat, 1)
-        num_vec = pyconvert(Vector{Int64}, py_num_vec)
-        spin_mat = zero(pos_mat)
-
-        mag_struc = Struc(
-            1,  # dummy idx for not recording relations between structures
-            lattice_mat,
-            num_vec,
-            pos_mat,
-            spin_mat
-        )
+        mag_struc = py_struc_to_struc(py_mag_struc)
         consider_idx_vec = consider_idx_in_radius(mag_struc, center_idx, cutoff_radius)
 
         # there exists multiple pairs between center atom and one point atom
@@ -198,32 +206,21 @@ module Utils
             )
 
             center_after_op_idx = corresponding_dict[center_idx]
-            if center_after_op_idx == center_idx    # fix the center point
-                for idx in consider_idx_vec
-                    raw_idx = corresponding_dict[idx]
-                    if raw_idx in consider_idx_vec
-                        union!(
-                            pair_ds,
-                            raw_idx,
-                            idx
-                        )
-                        pair_vec = [raw_idx, idx]
-                        if !haskey(pair_relation_dict, pair_vec)
-                            pair_relation_dict[pair_vec] = sym_op
-                        end
-                    end
-                end
+            if center_after_op_idx != center_idx    # fix the center point
+                continue
             end
-        end
-
-        ngroups = num_groups(pair_ds)
-        @info "There are $(ngroups) different type(s) of pairs."
-        group_parents = unique(pair_ds.internal.parents)
-        for (parent_idx, parent) in enumerate(group_parents)
-            @info "For the $(parent_idx)th group, qual pairs are shown as follows:"
-            for point_idx in consider_idx_vec
-                if find_root!(pair_ds, point_idx) == parent
-                    @info "$(center_idx) <=> $(point_idx)"
+            for idx in consider_idx_vec # find if there is any pair
+                raw_idx = corresponding_dict[idx]
+                if raw_idx in consider_idx_vec
+                    union!(
+                        pair_ds,
+                        raw_idx,
+                        idx
+                    )
+                    pair_vec = [raw_idx, idx]
+                    if !haskey(pair_relation_dict, pair_vec)
+                        pair_relation_dict[pair_vec] = sym_op
+                    end
                 end
             end
         end
@@ -318,13 +315,23 @@ module Utils
     get_py_struc(filepath::String) = py_Struc.from_file(filepath)
 
 
-    function get_sym_op_vec(py_struc, supercell_size; symprec=1e-2, angle_tolerance=5.0)
+    function get_sym_op_vec(
+        py_struc,
+        mag_num_vec,
+        supercell_size;
+        symprec=1e-2,
+        angle_tolerance=5.0
+    )
         py_sga = py_Sga(
             py_struc,
             symprec=symprec,
             angle_tolerance=angle_tolerance
         )
         py_refined_struc = py_sga.get_refined_structure()
+        py_num_vec = py_refined_struc.atomic_numbers
+        num_vec = pyconvert(Vector{Int64}, py_num_vec)
+        mag_atom_count = count(x -> x ∈ mag_num_vec, num_vec)
+
         py_refined_struc.make_supercell(supercell_size)
         py_sga = py_Sga(
             py_refined_struc,
@@ -368,7 +375,7 @@ module Utils
             end
         end
 
-        return spg_num, op_vec, py_refined_struc
+        return spg_num, mag_atom_count, op_vec, py_refined_struc
     end
 
 

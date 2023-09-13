@@ -60,7 +60,7 @@ module Types
     end
 
     function Base.show(io::IO, ::MIME"text/plain", atom::Atom)
-        println(
+        print(
             io,
             @sprintf("%3s", elements[atom.num].symbol) *
                 " @ " * vec2str(atom.pos) *
@@ -111,17 +111,27 @@ module Types
             return nothing
         else
             return (
-                Atom(
-                    struc.num_vec[state],
-                    struc.pos_mat[:, state],
-                    struc.spin_mat[:, state]
-                ),
+                struc[state],
                 state + 1
             )
         end
     end
 
-    Base.length(struc::Struc) = struc.atom_count
+    Base.length(struc::Struc) = length(struc.atom_count)
+
+    Base.getindex(struc::Struc, idx::Int) = @views Atom(
+        struc.num_vec[idx],
+        struc.pos_mat[:, idx],
+        struc.spin_mat[:, idx]
+    )
+    Base.getindex(struc::Struc, idics::Union{AbstractRange, AbstractVector}) = [
+        @views Atom(
+            struc.num_vec[idx],
+            struc.pos_mat[:, idx],
+            struc.spin_mat[:, idx]
+        )
+        for idx in idics
+    ]
 
     function Base.show(io::IO, ::MIME"text/plain", struc::Struc)
         println(io, "Structure Summary:")
@@ -139,6 +149,7 @@ module Types
         for atom in struc
             print(io, "  ")
             show(io, atom)
+            println()
         end
     end
     Base.show(io::IO, struc::Struc) = show(io, "text/plain", struc)
@@ -254,9 +265,14 @@ module Types
         map_mat::Matrix{Vector{Int8}}
         fallback_vec::Vector{Int8}
         struc_vec::Vector{Struc}
+        op_dict::Dict{Vector{Int}, SymOp}
     end
 
-    function Map(fallback_ds::IntDisjointSets, all_struc_vec::Vector{Struc})
+    function Map(
+        fallback_ds::IntDisjointSets,
+        all_struc_vec::Vector{Struc},
+        op_dict::Dict{Vector{Int}, SymOp}
+    )
         map_mat = [zeros(Int8, 4) for _ = 1:3, _ = 1:3]
         temp = eachslice(
             reshape(
@@ -282,7 +298,8 @@ module Types
         return Map(
             map_mat,
             fallback_vec,
-            all_struc_vec[fallback_vec]
+            all_struc_vec[fallback_vec],
+            op_dict
         )
     end
 
@@ -295,7 +312,8 @@ module Types
             println(io)
         end
 
-        print(io, "A reduced map with $(length(map.fallback_vec)) unique configurations")
+        println(io, "A reduced map with $(length(map.fallback_vec)) unique configurations.")
+        print(io, "There are other $(length(keys(map.op_dict))) equivalent interactions.")
     end
     Base.show(io::IO, map::Map) = show(io, "text/plain", map)
 end

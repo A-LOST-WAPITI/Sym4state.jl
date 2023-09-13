@@ -9,6 +9,61 @@ module ModCore
     export pre_process
 
 
+    function reduce_j_mat_for_a_pair(
+        mag_struc_vec,
+        sym_op_vec;
+        show_progress_bar=true,
+        atol=1e-2
+    )
+        unique_mag_struc_vec = Struc[]
+        fallback_ds = IntDisjointSets(36)
+        p = Progress(
+            length(mag_struc_vec) * length(sym_op_vec);
+            showspeed=true,
+            enabled=show_progress_bar
+        )
+        for mag_struc in mag_struc_vec
+            for sym_op in sym_op_vec
+                mag_struc_after_op = sym_op * mag_struc
+                source_uni_num = mag_struc_after_op.uni_num
+
+                occur_flag = false
+                para_lock = Threads.SpinLock()
+                Threads.@threads for mag_struc_occur in unique_mag_struc_vec
+                    target_uni_num = mag_struc_occur.uni_num
+                    approx_flag, _ = struc_compare( # corresponding_dict not needed here
+                        mag_struc_after_op,
+                        mag_struc_occur,
+                        atol=atol
+                    )
+                    if source_uni_num != target_uni_num && approx_flag
+                        Threads.lock(para_lock) do
+                            occur_flag = true
+
+                            union!(
+                                fallback_ds,
+                                source_uni_num,
+                                target_uni_num
+                            )
+                        end
+                    end
+                end
+
+                if !occur_flag
+                    push!(
+                        unique_mag_struc_vec,
+                        mag_struc_after_op
+                    )
+                end
+
+                next!(p)
+            end
+        end
+
+        return fallback_ds
+    end
+
+
     function sym4state(
         py_struc,
         mag_num_vec,
@@ -23,12 +78,14 @@ module ModCore
         @info "Absolute tolrance is set to $(atol)"
         @info "Symmetry precision is set to $(symprec)"
 
-        spg_num, sym_op_vec, py_refined_struc = get_sym_op_vec(
+        spg_num, mag_atom_count, sym_op_vec, py_refined_struc = get_sym_op_vec(
             py_struc,
+            mag_num_vec,
             supercell_size,
             symprec=symprec,
             angle_tolerance=angle_tolerance
         )
+        @info "There are $(mag_atom_count) atoms taken as magnetic in the given primitive cell."
         @info "The space group number of given structure is $(spg_num) with given `symprec`"
         dump_struc_name = "POSCAR_refined_$(supercell_size[1])x$(supercell_size[2])"    # we only consider 2D materials
         py_refined_struc.to(dump_struc_name)
@@ -46,85 +103,87 @@ module ModCore
             sym_op_vec
         )
 
-        min_energy_num = 37 # make sure `min_energy_num` can be updated
-        min_point_idx = 0
-        struc_vec = Struc[]
-        fallback_ds = IntDisjointSets(37)   # make sure `fallback_ds` can be updated
-        for point_idx in pair_ds.revmap
-            @info "Checking pair $(center_idx) <=> $(point_idx) ..."
-            target_idx_vec = [center_idx, point_idx]
-            temp_struc_vec = get_all_j_struc_vec(py_refined_struc, mag_num_vec, target_idx_vec)
-            mag_struc_vec = [magonly(struc, mag_num_vec) for struc in temp_struc_vec]
-
-            @info "Reducing 4-state J matrix ..."
-            unique_mag_struc_vec = Struc[]
-            temp_fallback_ds = IntDisjointSets(36)
-            p = Progress(
-                length(mag_struc_vec) * length(sym_op_vec);
-                showspeed=true,
-                enabled=show_progress_bar
-            )
-            for mag_struc in mag_struc_vec
-                for sym_op in sym_op_vec
-                    mag_struc_after_op = sym_op * mag_struc
-                    source_uni_num = mag_struc_after_op.uni_num
-
-                    occur_flag = false
-                    para_lock = Threads.SpinLock()
-                    Threads.@threads for mag_struc_occur in unique_mag_struc_vec
-                        target_uni_num = mag_struc_occur.uni_num
-                        approx_flag, _ = struc_compare(
-                            mag_struc_after_op,
-                            mag_struc_occur,
-                            atol=atol
-                        )
-                        if source_uni_num != target_uni_num && approx_flag
-                            Threads.lock(para_lock) do
-                                occur_flag = true
-
-                                union!(
-                                    temp_fallback_ds,
-                                    source_uni_num,
-                                    target_uni_num
-                                )
-                            end
-                        end
-                    end
-
-                    if !occur_flag
-                        push!(
-                            unique_mag_struc_vec,
-                            mag_struc_after_op
-                        )
-                    end
-
-                    next!(p)
+        ngroups = num_groups(pair_ds)
+        @info "There are $(ngroups) different type(s) of pairs."
+        group_parents = unique(pair_ds.internal.parents)
+        for (parent_idx, parent) in enumerate(group_parents)
+            @info "For the $(parent_idx)th group, equivalent pairs are shown as follows:"
+            for point_idx in pair_ds.revmap
+                if find_root!(pair_ds, point_idx) == parent
+                    @info "$(center_idx) <=> $(point_idx)"
                 end
-            end
-
-            energy_num = num_groups(temp_fallback_ds)
-            if energy_num < min_energy_num
-                @info "Find pair with higher symmetry!"
-                @info "The number of energies now is $(energy_num)."
-
-                min_energy_num = energy_num
-                min_point_idx = point_idx
-                struc_vec = temp_struc_vec
-                fallback_ds = temp_fallback_ds
             end
         end
 
-        map = Map(fallback_ds, struc_vec)
+        raw_struc = py_struc_to_struc(py_refined_struc)
+        map_vec = Map[]
+        for parent in group_parents
+            min_energy_num = 37 # make sure `min_energy_num` can be updated
+            min_point_idx = 0
+            struc_vec = Struc[]
+            fallback_ds = IntDisjointSets(37)   # make sure `fallback_ds` can be updated
+            for point_idx in pair_ds.revmap
+                # pairs from different groups are skipped
+                if find_root!(pair_ds, point_idx) != parent
+                    continue
+                end
+
+                @info "Checking pair $(center_idx) <=> $(point_idx) ..."
+                target_idx_vec = [center_idx, point_idx]
+                temp_struc_vec = get_all_j_struc_vec(raw_struc, mag_num_vec, target_idx_vec)
+                mag_struc_vec = [magonly(struc, mag_num_vec) for struc in temp_struc_vec]
+
+                @info "Reducing 4-state J matrix ..."
+                temp_fallback_ds = reduce_j_mat_for_a_pair(
+                    mag_struc_vec,
+                    sym_op_vec;
+                    atol=atol,
+                    show_progress_bar=show_progress_bar
+                )
+
+                energy_num = num_groups(temp_fallback_ds)
+                # record the highest symmetry for now
+                if energy_num < min_energy_num
+                    @info "Find pair with higher symmetry!"
+                    @info "The number of energies now is $(energy_num)."
+
+                    min_energy_num = energy_num
+                    min_point_idx = point_idx
+                    struc_vec = temp_struc_vec
+                    fallback_ds = temp_fallback_ds
+                end
+            end
+
+            op_dict = Dict{Vector{Int}, SymOp}()
+            for point_idx in pair_ds.revmap
+                if point_idx == min_point_idx
+                    continue
+                end
+
+                idx_diff = linear_idx_to_vec(
+                    point_idx,
+                    supercell_size,
+                    mag_atom_count
+                )
+                op_dict[idx_diff] = pair_relation_dict[[min_point_idx, point_idx]]
+            end
+            map = Map(
+                fallback_ds,
+                struc_vec,
+                op_dict
+            )
+            push!(map_vec, map)
+        end
 
         @info "Saving the reduced map into \"Map.jld2\"..."
         save(
             "Map.jld2",
             Dict(
-                "map" => map
+                "map" => map_vec
             )
         )
 
-        return map
+        return map_vec
     end
 
 
