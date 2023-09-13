@@ -203,11 +203,13 @@ module ModCore
         angle_tolerance=5.0,
         show_progress_bar=true,
         incar_path="./INCAR",
+        poscar_path="./POSCAR",
         potcar_path="./POTCAR",
-        kpoints_path="./KPOINTS"
+        kpoints_path="./KPOINTS",
+        kwargs...
     )
         py_struc = get_py_struc(filepath)
-        map = sym4state(
+        center_map_vec = sym4state(
             py_struc,
             mag_num_vec,
             supercell_size,
@@ -219,11 +221,34 @@ module ModCore
         )
 
         to_vasp_inputs(
-            map,
+            center_map_vec,
             incar_path=incar_path,
             poscar_path=poscar_path,
             potcar_path=potcar_path,
-            kpoints_path=kpoints_path
+            kpoints_path=kpoints_path,
+            kwargs...
+        )
+    end
+    function pre_process(
+        filepath;
+        incar_path="./INCAR",
+        poscar_path="./POSCAR",
+        potcar_path="./POTCAR",
+        kpoints_path="./KPOINTS",
+        kwargs...
+    )
+        center_map_vec = load(
+            filepath,
+            "map"
+        )
+
+        to_vasp_inputs(
+            center_map_vec,
+            incar_path=incar_path,
+            poscar_path=poscar_path,
+            potcar_path=potcar_path,
+            kpoints_path=kpoints_path,
+            kwargs...
         )
     end
 

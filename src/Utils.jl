@@ -262,11 +262,12 @@ module Utils
 
 
     function to_vasp_inputs(
-        map::Map;
+        center_map_vec::Vector{Vector{Map}};
         incar_path="./INCAR",
         poscar_path="./POSCAR",
         potcar_path="./POTCAR",
-        kpoints_path="./KPOINTS"
+        kpoints_path="./KPOINTS",
+        kwargs...
     )
         @assert isfile(incar_path) "Invalid `INCAR` path!"
         @assert isfile(potcar_path) "Invalid `POTCAR` path!"
@@ -287,26 +288,38 @@ module Utils
         py_incar = py_Incar.from_file(incar_path)
         rwigs_vec = set_rwigs(poscar_path)
 
-        mkdir(par_dir_name)
+        mkpath(par_dir_name)
         conf_dir_vec = String[]
-        for (struc_idx, struc) in enumerate(map.struc_vec)
-            conf_dir = par_dir_name * "conf_$(struc_idx)/"
-            mkdir(conf_dir)
+        for (center_idx, map_vec) in enumerate(center_map_vec)
+            center_dir_name = par_dir_name * "center_$(center_idx)/"
+            for (group_idx, map) in enumerate(map_vec)
+                group_dir_name = center_dir_name * "goup_$(group_idx)/"
+                for (struc_idx, struc) in enumerate(map.struc_vec)
+                    conf_dir = group_dir_name * "conf_$(struc_idx)/"
+                    mkpath(conf_dir)
 
-            py_magmom_list = py_np.array(transpose(struc.spin_mat)).tolist()
-            py_incar.update(Dict(
-                "MAGMOM" => py_magmom_list,
-                "M_CONSTR" => pylist(struc.spin_mat),
-                "I_CONSTRAINED_M" => 1,
-                "RWIGS" => pylist(rwigs_vec)
-            ))
+                    py_magmom_list = py_np.array(transpose(struc.spin_mat)).tolist()
+                    update_pack_dict = Dict(
+                        "MAGMOM" => py_magmom_list,
+                        "M_CONSTR" => pylist(struc.spin_mat),
+                        "I_CONSTRAINED_M" => 1,
+                        "RWIGS" => pylist(rwigs_vec)
+                    )
+                    # other parameters
+                    for pair in kwargs
+                        push!(update_pack_dict, pair)
+                    end
+                    py_incar.update(update_pack_dict)
 
-            py_incar.write_file(conf_dir * "INCAR")
-            symlink(relpath(poscar_path, conf_dir), conf_dir * "POSCAR")
-            symlink(relpath(potcar_path, conf_dir), conf_dir * "POTCAR")
-            symlink(relpath(kpoints_path, conf_dir), conf_dir * "KPOINTS")
+                    py_incar.write_file(conf_dir * "INCAR")
+                    # using relative path for flexibility
+                    symlink(relpath(poscar_path, conf_dir), conf_dir * "POSCAR")
+                    symlink(relpath(potcar_path, conf_dir), conf_dir * "POTCAR")
+                    symlink(relpath(kpoints_path, conf_dir), conf_dir * "KPOINTS")
 
-            push!(conf_dir_vec, conf_dir)
+                    push!(conf_dir_vec, conf_dir)
+                end
+            end
         end
 
         @info "Storing path to different configuration into `J_CONF_DIR`. One may use SLURM's job array to calculate."
