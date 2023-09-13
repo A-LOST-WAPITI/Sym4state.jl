@@ -72,7 +72,8 @@ module ModCore
         atol=1e-2,
         symprec=1e-2,
         angle_tolerance=5.0,
-        show_progress_bar=true
+        show_progress_bar=true,
+        save_map=true
     )
         @info "Absolute tolrance is set to $(atol)"
         @info "Symmetry precision is set to $(symprec)"
@@ -180,14 +181,16 @@ module ModCore
             push!(center_map_vec, map_vec)
         end
 
-        println()
-        @info "Saving the reduced map into \"Map.jld2\"..."
-        save(
-            "Map.jld2",
-            Dict(
-                "map" => center_map_vec
+        if save_map
+            println()
+            @info "Saving the reduced map into \"Map.jld2\"..."
+            save(
+                "Map.jld2",
+                Dict(
+                    "map" => center_map_vec
+                )
             )
-        )
+        end
 
         return center_map_vec
     end
