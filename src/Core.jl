@@ -87,7 +87,7 @@ module ModCore
         )
         @info "There are $(mag_atom_count) atoms taken as magnetic in the given primitive cell."
         @info "The space group number of given structure is $(spg_num) with given `symprec`"
-        dump_struc_name = "POSCAR_refined_$(supercell_size[1])x$(supercell_size[2])"    # we only consider 2D materials
+        dump_struc_name = "POSCAR_refined_$(supercell_size[1])x$(supercell_size[2])x$(supercell_size[3])"    # we only consider 2D materials
         py_refined_struc.to(dump_struc_name)
         @info "The refined structure has been dumped into \"$(dump_struc_name)\""
         
