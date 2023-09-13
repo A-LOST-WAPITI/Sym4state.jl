@@ -343,7 +343,7 @@ module Utils
 
         spg_num = pyconvert(Int64, py_sym_dict["number"])
         lattice_mat = permutedims(
-            pyconvert(Array{Float64}, py_struc.lattice.matrix),
+            pyconvert(Array{Float64}, py_refined_struc.lattice.matrix),
             (2, 1)
         )
         inv_lattive_mat = inv(lattice_mat)
