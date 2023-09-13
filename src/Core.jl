@@ -202,7 +202,6 @@ module ModCore
         symprec=1e-2,
         angle_tolerance=5.0,
         show_progress_bar=true,
-        center_idx=1,
         incar_path="./INCAR",
         potcar_path="./POTCAR",
         kpoints_path="./KPOINTS"
