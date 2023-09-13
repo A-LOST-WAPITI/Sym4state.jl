@@ -153,18 +153,20 @@ module Utils
     end
 
     function linear_idx_to_vec(idx, supercell_size, num_pri_sites)
-        temp_len_vec = [supercell_size..., num_pri_sites]
-        idx_vec = Int[]
-        temp_idx = idx
-        for len_idx in axes(temp_len_vec, 1)
-            cell_size = prod(temp_len_vec[1:end - len_idx])
-            d_idx = (temp_idx - 1) ÷ cell_size + 1
-            temp_idx = mod1(temp_idx, cell_size)
+        temp = reshape(1:9, num_pri_sites, reverse(supercell_size)...)
 
-            push!(idx_vec, d_idx)
-        end
+        idx_vec = findfirst(==(idx), temp).I |> collect
 
         reverse!(idx_vec)
+        idx_vec .-= 1
+        idx_vec[end] += 1   # there is no 0th atom
+
+        for idx_pos = 1:3
+            if idx_vec[idx_pos] > supercell_size[idx_pos]/2
+                idx_vec[idx_pos] -= supercell_size[idx_pos]
+            end
+        end
+
         return idx_vec
     end
 

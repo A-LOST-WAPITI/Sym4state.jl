@@ -162,10 +162,6 @@ module ModCore
 
                 op_dict = Dict{Vector{Int}, SymOp}()
                 for point_idx in pair_ds.revmap
-                    if point_idx == min_point_idx
-                        continue
-                    end
-
                     idx_diff = linear_idx_to_vec(
                         point_idx,
                         supercell_size,
