@@ -98,16 +98,16 @@ const RADIUS_DICT = Dict(
         "radii" => [1.39]
     ),
     "Mn" => Dict(
-        "name" => ["Mn", "Mn"],
-        "radii" => SubString{String}["l.s.", "h.s."]
+        "name" => ["Mn l.s.", "Mn h.s."],
+        "radii" => [1.39, 1.61]
     ),
     "Fe" => Dict(
-        "name" => ["Fe", "Fe"],
-        "radii" => SubString{String}["l.s.", "h.s."]
+        "name" => ["Fe l.s.", "Fe h.s."],
+        "radii" => [1.32, 1.52]
     ),
     "Co" => Dict(
-        "name" => ["Co", "Co"],
-        "radii" => SubString{String}["l.s.", "h.s."]
+        "name" => ["Co l.s.", "Co h.s."],
+        "radii" => [1.26, 1.50]
     ),
     "Ni" => Dict(
         "name" => ["Ni"],
