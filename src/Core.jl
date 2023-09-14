@@ -256,21 +256,19 @@ module ModCore
     end
 
     function post_process(
-        map_path::String,
-        target_idx_vec
+        map_file_path::String;
+        cal_dir::String=dirname(abspath(map_file_path)) * "/J_CONF_DIR/"
     )
-        map = load(
-            map_path,
+        center_map_vec = load(
+            map_file_path,
             "map"
         )
-        cal_dir = dirname(map_path)
-        conf_list_path = cal_dir * "/J_CONF_DIR"
 
-        dir_now = pwd()
-        cd(cal_dir)
-        j_mat = get_j_mat(map, conf_list_path, target_idx_vec)
-        cd(dir_now)
+        point_idx_array, interact_coeff_array = get_point_and_coeff(
+            center_map_vec,
+            cal_dir
+        )
 
-        return j_mat
+        return point_idx_array, interact_coeff_array
     end
 end

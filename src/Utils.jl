@@ -10,9 +10,10 @@ module Utils
     using ..Python
 
 
-    export get_all_j_struc_vec, to_vasp_inputs, equal_pair, get_py_struc, get_sym_op_vec, get_j_mat, struc_compare
+    export get_all_j_struc_vec, to_vasp_inputs, equal_pair, get_py_struc, get_sym_op_vec, struc_compare
     export linear_idx_to_vec
     export py_struc_to_struc
+    export get_point_and_coeff
 
 
     include("data/CovalentRadius.jl")
@@ -408,10 +409,31 @@ module Utils
         return energy, mag_mat
     end
 
-    function get_j_mat(
-        map::Map,
-        conf_list_path::String,
-        target_idx_vec::Vector{Int64}
+    function get_coeff_mat(map::Map, energy_vec)
+        coeff_mat = zeros(3, 3)
+        for i = 1:3, j = 1:3
+            map_vec = map.map_mat[i, j]
+            
+            if map_vec[1] == 0
+                j_mat[i, j] = 0
+            else
+                idx_1, idx_2, idx_3, idx_4 = map_vec
+                coeff_mat[i, j] = (
+                    energy_vec[idx_1] -
+                    energy_vec[idx_2] -
+                    energy_vec[idx_3] +
+                    energy_vec[idx_4]
+                )/4
+            end
+        end
+
+        return coeff_mat
+    end
+
+    # TODO: get interaction coefficients for given `center_map_vec`
+    function get_point_and_coeff(
+        center_map_vec::Vector{Vector{Map}},
+        cal_dir::String
     )
         fallback_vec = map.fallback_vec
         conf_dir_vec = readdlm(conf_list_path)
@@ -435,22 +457,7 @@ module Utils
             energy_vec[fallback_vec[conf_idx]] = energy
         end
 
-        j_mat = zeros(3, 3)
-        for i = 1:3, j = 1:3
-            map_vec = map.map_mat[i, j]
-            
-            if map_vec[1] == 0
-                j_mat[i, j] = 0
-            else
-                idx_1, idx_2, idx_3, idx_4 = map_vec
-                j_mat[i, j] = (
-                    energy_vec[idx_1] -
-                    energy_vec[idx_2] -
-                    energy_vec[idx_3] +
-                    energy_vec[idx_4]
-                )/4
-            end
-        end
+        coeff_mat = get_coeff_mat(map, energy_vec)
 
         return j_mat
     end
