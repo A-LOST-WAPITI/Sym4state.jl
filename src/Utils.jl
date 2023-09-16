@@ -154,7 +154,8 @@ module Utils
     end
 
     function linear_idx_to_vec(idx, supercell_size, num_pri_sites)
-        temp = reshape(1:9, num_pri_sites, reverse(supercell_size)...)
+        atom_count = prod(supercell_size) * num_pri_sites
+        temp = reshape(1:atom_count, num_pri_sites, reverse(supercell_size)...)
 
         idx_vec = findfirst(==(idx), temp).I |> collect
 
@@ -430,13 +431,9 @@ module Utils
         return coeff_mat
     end
 
-    # TODO: get interaction coefficients for given `center_map_vec`
-    function get_point_and_coeff(
-        center_map_vec::Vector{Vector{Map}},
-        cal_dir::String
-    )
+    function get_one_interact_coeff_mat(map::Map, cal_dir::String)
         fallback_vec = map.fallback_vec
-        conf_dir_vec = readdlm(conf_list_path)
+        conf_dir_vec = readdir(cal_dir, join=true)
         @assert length(fallback_vec) == length(conf_dir_vec)
 
         energy_vec = Dict{Int8, Float64}()
@@ -459,6 +456,84 @@ module Utils
 
         coeff_mat = get_coeff_mat(map, energy_vec)
 
-        return j_mat
+        return coeff_mat
+    end
+
+    function get_all_interact_coeff_under_sym(coeff_mat, map::Map)
+        point_idx_vec = keys(map.op_dict)
+        coeff_mat_vec = []
+        for point in point_vec
+            sym_op = map.op_dict[point]
+
+            push!(
+                coeff_mat_vec,
+                sym_op * coeff_mat
+            )
+        end
+
+        point_idx_mat = stack(point_idx_vec, dims=1)
+        coeff_array = stack(coeff_mat_vec, dims=1)
+
+        return point_idx_mat, coeff_array
+    end
+
+
+    function get_point_and_coeff(
+        center_map_vec::Vector{CenterMap},
+        cal_dir::String
+    )
+        all_point_idx_vec = []
+        all_interact_coeff_vec = []
+        for (center_idx, center_map) in enumerate(center_map_vec)
+            center_point_idx_vec = []
+            center_interact_coeff_vec = []
+            for (group_idx, map) in center_map
+                group_dir = cal_dir * "center_$(center_idx)/group_$(group_idx)/"
+
+                coeff_mat = get_one_interact_coeff_mat(map, group_dir)
+                point_idx_mat, coeff_array = get_all_interact_coeff_under_sym(
+                    coeff_mat,
+                    map
+                )
+
+                push!(
+                    center_point_idx_vec,
+                    point_idx_mat
+                )
+                push!(
+                    center_interact_coeff_vec,
+                    coeff_array
+                )
+            end
+
+            center_point_idx_array = stack(
+                center_point_idx_vec,
+                dims=1
+            )
+            center_interact_coeff_array = stack(
+                center_interact_coeff_vec,
+                dims=1
+            )
+
+            push!(
+                all_point_idx_vec,
+                center_point_idx_array
+            )
+            push!(
+                all_interact_coeff_vec,
+                center_interact_coeff_array
+            )
+        end
+
+        point_idx_array = stack(
+            all_point_idx_vec,
+            dims=1
+        )
+        interact_coeff_array = stack(
+            all_interact_coeff_vec,
+            dims=1
+        )
+
+        return point_idx_array, interact_coeff_array
     end
 end

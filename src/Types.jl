@@ -8,7 +8,7 @@ module Types
     using DataStructures: IntDisjointSets, find_root!
 
 
-    export Struc, SymOp, FallbackList, Map
+    export Struc, SymOp, FallbackList, Map, CenterMap
     export magonly
 
 
@@ -316,4 +316,7 @@ module Types
         print(io, "There are other $(length(keys(map.op_dict))) equivalent interactions.")
     end
     Base.show(io::IO, map::Map) = show(io, "text/plain", map)
+
+
+    const CenterMap = AbstractVector{Map}
 end

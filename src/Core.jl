@@ -72,8 +72,7 @@ module ModCore
         atol=1e-2,
         symprec=1e-2,
         angle_tolerance=5.0,
-        show_progress_bar=true,
-        save_map=true
+        show_progress_bar=true
     )
         @info "Absolute tolrance is set to $(atol)"
         @info "Symmetry precision is set to $(symprec)"
@@ -112,11 +111,16 @@ module ModCore
 
             ngroups = num_groups(pair_ds)
             @info "There are $(ngroups) different type(s) of pairs."
-            group_parents = unique(pair_ds.internal.parents)
-            for (parent_idx, parent) in enumerate(group_parents)
+            point_idx_vec = pair_ds.revmap
+            pair_parents_vec = [
+                find_root!(pair_ds, point_idx)
+                for point_idx in point_idx_vec
+            ]
+            group_parents_vec = unique(pair_parents_vec)
+            for (parent_idx, group_parent) in enumerate(group_parents_vec)
                 @info "For the $(parent_idx)th group, equivalent pairs are shown as follows:"
-                for point_idx in pair_ds.revmap
-                    if find_root!(pair_ds, point_idx) == parent
+                for (point_idx, pair_parent) in zip(point_idx_vec, pair_parents_vec)
+                    if pair_parent == group_parent
                         @info "$(center_idx) <=> $(point_idx)"
                     end
                 end
@@ -124,14 +128,14 @@ module ModCore
 
             raw_struc = py_struc_to_struc(py_refined_struc)
             map_vec = Map[]
-            for parent in group_parents
+            for group_parent in group_parents_vec
                 min_energy_num = 37 # make sure `min_energy_num` can be updated
                 min_point_idx = 0
                 struc_vec = Struc[]
                 fallback_ds = IntDisjointSets(37)   # make sure `fallback_ds` can be updated
-                for point_idx in pair_ds.revmap
+                for (point_idx, pair_parent) in zip(point_idx_vec, pair_parents_vec)
                     # pairs from different groups are skipped
-                    if find_root!(pair_ds, point_idx) != parent
+                    if pair_parent != group_parent
                         continue
                     end
 
@@ -181,17 +185,6 @@ module ModCore
             push!(center_map_vec, map_vec)
         end
 
-        if save_map
-            println()
-            @info "Saving the reduced map into \"Map.jld2\"..."
-            save(
-                "Map.jld2",
-                Dict(
-                    "map" => center_map_vec
-                )
-            )
-        end
-
         return center_map_vec
     end
 
@@ -222,6 +215,16 @@ module ModCore
             angle_tolerance=angle_tolerance,
             show_progress_bar=show_progress_bar
         )
+
+        println()
+        @info "Saving the reduced map into \"Map.jld2\"..."
+        save(
+            "Map.jld2",
+            Dict(
+                "map" => center_map_vec
+            )
+        )
+
 
         to_vasp_inputs(
             center_map_vec,
@@ -257,7 +260,7 @@ module ModCore
 
     function post_process(
         map_file_path::String;
-        cal_dir::String=dirname(abspath(map_file_path)) * "/J_CONF_DIR/"
+        cal_dir::String=dirname(abspath(map_file_path)) * "/J_MAT/"
     )
         center_map_vec = load(
             map_file_path,
