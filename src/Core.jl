@@ -86,106 +86,109 @@ module ModCore
         )
         @info "There are $(mag_atom_count) atoms taken as magnetic in the given primitive cell."
         @info "The space group number of given structure is $(spg_num) with given `symprec`"
-        dump_struc_name = "POSCAR_refined_$(supercell_size[1])x$(supercell_size[2])x$(supercell_size[3])"    # we only consider 2D materials
-        py_refined_struc.to(dump_struc_name)
-        @info "The refined structure has been dumped into \"$(dump_struc_name)\""
+        py_refined_struc.to("POSCAR")
+        @info "The refined structure has been dumped into \"POSCAR\""
         
         center_idx_vec = [
             (idx - 1) * prod(supercell_size) + idx
             for idx = 1:mag_atom_count
         ]
-        center_map_vec = Vector{Map}[]
-        for center_idx in center_idx_vec
-            println()
-            @info "Choose the following atom as center:"
-            @info "---"
-            println(py_refined_struc[center_idx - 1])   # TODO: Not so pretty ...
-            @info "---"
-            pair_ds, pair_relation_dict = equal_pair(
-                py_refined_struc,
-                mag_num_vec,
-                center_idx,
-                cutoff_radius,
-                sym_op_vec
-            )
+        pair_ds, pair_relation_dict = equal_pair(
+            py_refined_struc,
+            mag_num_vec,
+            center_idx_vec,
+            cutoff_radius,
+            sym_op_vec
+        )
 
-            ngroups = num_groups(pair_ds)
-            @info "There are $(ngroups) different type(s) of pairs."
-            point_idx_vec = pair_ds.revmap
-            pair_parents_vec = [
-                find_root!(pair_ds, point_idx)
-                for point_idx in point_idx_vec
-            ]
-            group_parents_vec = unique(pair_parents_vec)
-            for (parent_idx, group_parent) in enumerate(group_parents_vec)
-                @info "For the $(parent_idx)th group, equivalent pairs are shown as follows:"
-                for (point_idx, pair_parent) in zip(point_idx_vec, pair_parents_vec)
-                    if pair_parent == group_parent
-                        @info "$(center_idx) <=> $(point_idx)"
-                    end
+        ngroups = num_groups(pair_ds)
+        @info "There are $(ngroups) different type(s) of pairs."
+        pair_vec_vec = pair_ds.revmap
+        parents_vec = [
+            find_root!(pair_ds, pair_vec)
+            for pair_vec in pair_vec_vec
+        ]
+        group_parents_vec = unique(parents_vec)
+        for (parent_idx, group_parent) in enumerate(group_parents_vec)
+            @info "For the $(parent_idx)th group, equivalent pairs are shown as follows:"
+            for (pair_vec, parent) in zip(pair_vec_vec, parents_vec)
+                if parent == group_parent
+                    @info "$(parent) <=> $(pair_vec)"
                 end
             end
-
-            raw_struc = py_struc_to_struc(py_refined_struc)
-            map_vec = Map[]
-            for group_parent in group_parents_vec
-                min_energy_num = 37 # make sure `min_energy_num` can be updated
-                min_point_idx = 0
-                struc_vec = Struc[]
-                fallback_ds = IntDisjointSets(37)   # make sure `fallback_ds` can be updated
-                for (point_idx, pair_parent) in zip(point_idx_vec, pair_parents_vec)
-                    # pairs from different groups are skipped
-                    if pair_parent != group_parent
-                        continue
-                    end
-
-                    @info "Checking pair $(center_idx) <=> $(point_idx) ..."
-                    target_idx_vec = [center_idx, point_idx]
-                    temp_struc_vec = get_all_j_struc_vec(raw_struc, mag_num_vec, target_idx_vec)
-                    mag_struc_vec = [magonly(struc, mag_num_vec) for struc in temp_struc_vec]
-
-                    @info "Reducing 4-state J matrix ..."
-                    temp_fallback_ds = reduce_j_mat_for_a_pair(
-                        mag_struc_vec,
-                        sym_op_vec;
-                        atol=atol,
-                        show_progress_bar=show_progress_bar
-                    )
-
-                    energy_num = num_groups(temp_fallback_ds)
-                    # record the highest symmetry for now
-                    if energy_num < min_energy_num
-                        @info "Find pair with higher symmetry!"
-                        @info "The number of energies now is $(energy_num)."
-
-                        min_energy_num = energy_num
-                        min_point_idx = point_idx
-                        struc_vec = temp_struc_vec
-                        fallback_ds = temp_fallback_ds
-                    end
-                end
-
-                op_dict = Dict{Vector{Int}, SymOp}()
-                for point_idx in pair_ds.revmap
-                    idx_diff = linear_idx_to_vec(
-                        point_idx,
-                        supercell_size,
-                        mag_atom_count
-                    )
-                    op_dict[idx_diff] = pair_relation_dict[[min_point_idx, point_idx]]
-                end
-                map = Map(
-                    fallback_ds,
-                    struc_vec,
-                    op_dict
-                )
-                push!(map_vec, map)
-            end
-
-            push!(center_map_vec, map_vec)
         end
 
-        return center_map_vec
+        raw_struc = py_struc_to_struc(py_refined_struc)
+        map_vec = Map[]
+        relation_vec = CoeffMatRef[]
+        map::Union{Nothing, Map} = nothing
+        for (group_idx, group_parent) in enumerate(group_parents_vec)
+            min_energy_num = 37 # make sure `min_energy_num` can be updated
+            min_pair_vec = Int[]
+            for (pair_vec, parent) in zip(pair_vec_vec, parents_vec)
+                # pairs from different groups are skipped
+                if parent != group_parent
+                    continue
+                end
+
+                println()
+                @info "Checking pair $(pair_vec) ..."
+                temp_struc_vec = get_all_j_struc_vec(raw_struc, mag_num_vec, pair_vec)
+                mag_struc_vec = [magonly(struc, mag_num_vec) for struc in temp_struc_vec]
+
+                @info "Reducing 4-state J matrix ..."
+                temp_fallback_ds = reduce_j_mat_for_a_pair(
+                    mag_struc_vec,
+                    sym_op_vec;
+                    atol=atol,
+                    show_progress_bar=show_progress_bar
+                )
+
+                energy_num = num_groups(temp_fallback_ds)
+                # record the highest symmetry for now
+                if energy_num < min_energy_num
+                    @info "Find pair with higher symmetry!"
+
+                    min_pair_vec = pair_vec
+                    temp_map = Map(
+                        temp_fallback_ds,
+                        temp_struc_vec
+                    )
+                    min_energy_num = length(temp_map.fallback_vec)
+                    map = temp_map
+
+                    @info "The number of energies now is $(min_energy_num)."
+                end
+            end
+
+            push!(map_vec, map)
+            for (pair_vec, parent) in zip(pair_vec_vec, parents_vec)
+                if parent != group_parent
+                    continue
+                end
+
+                pair_relation_vec = vcat(
+                    min_pair_vec,
+                    pair_vec
+                )
+                center_idx = linear_idx_to_vec(pair_vec[1], supercell_size, mag_atom_count)
+                point_idx = linear_idx_to_vec(pair_vec[2], supercell_size, mag_atom_count)
+
+                cell_idx_diff = point_idx[2:end] .- center_idx[2:end]
+                fixed_pair_vec = vcat(center_idx[1], cell_idx_diff[1:2], point_idx[1])
+                coeff_ref = CoeffMatRef(
+                    group_idx,
+                    fixed_pair_vec,
+                    pair_relation_dict[pair_relation_vec]
+                )
+                push!(
+                    relation_vec,
+                    coeff_ref
+                )
+            end
+        end
+
+        return map_vec, relation_vec
     end
 
 
@@ -205,7 +208,7 @@ module ModCore
         kwargs...
     )
         py_struc = get_py_struc(filepath)
-        center_map_vec = sym4state(
+        map_vec, relation_vec = sym4state(
             py_struc,
             mag_num_vec,
             supercell_size,
@@ -217,17 +220,17 @@ module ModCore
         )
 
         println()
-        @info "Saving the reduced map into \"Map.jld2\"..."
+        @info "Saving the reduced map and relations into \"cal.jld2\"..."
         save(
-            "Map.jld2",
+            "cal.jld2",
             Dict(
-                "map" => center_map_vec
+                "map" => map_vec,
+                "relation" => relation_vec
             )
         )
 
-
         to_vasp_inputs(
-            center_map_vec,
+            map_vec,
             incar_path=incar_path,
             poscar_path=poscar_path,
             potcar_path=potcar_path,
@@ -243,13 +246,13 @@ module ModCore
         kpoints_path="./KPOINTS",
         kwargs...
     )
-        center_map_vec = load(
+        map_vec = load(
             filepath,
             "map"
         )
 
         to_vasp_inputs(
-            center_map_vec,
+            map_vec,
             incar_path=incar_path,
             poscar_path=poscar_path,
             potcar_path=potcar_path,
@@ -259,19 +262,22 @@ module ModCore
     end
 
     function post_process(
-        map_file_path::String;
-        cal_dir::String=dirname(abspath(map_file_path)) * "/J_MAT/"
+        cal_file_path::String
     )
-        center_map_vec = load(
-            map_file_path,
-            "map"
+        cal_dir = dirname(abspath(cal_file_path)) * "/cal/"
+
+        map_vec, relation_vec = load(
+            cal_file_path,
+            "map",
+            "relation"
         )
 
-        point_idx_array, interact_coeff_array = get_point_and_coeff(
-            center_map_vec,
+        pair_mat, coeff_array = get_pair_and_coeff(
+            map_vec,
+            relation_vec,
             cal_dir
         )
 
-        return point_idx_array, interact_coeff_array
+        return pair_mat, coeff_array
     end
 end

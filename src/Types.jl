@@ -8,7 +8,7 @@ module Types
     using DataStructures: IntDisjointSets, find_root!
 
 
-    export Struc, SymOp, FallbackList, Map, CenterMap
+    export Struc, SymOp, FallbackList, Map, CoeffMatRef
     export magonly
 
 
@@ -265,13 +265,11 @@ module Types
         map_mat::Matrix{Vector{Int8}}
         fallback_vec::Vector{Int8}
         struc_vec::Vector{Struc}
-        op_dict::Dict{Vector{Int}, SymOp}
     end
 
     function Map(
         fallback_ds::IntDisjointSets,
         all_struc_vec::Vector{Struc},
-        op_dict::Dict{Vector{Int}, SymOp}
     )
         map_mat = [zeros(Int8, 4) for _ = 1:3, _ = 1:3]
         temp = eachslice(
@@ -298,8 +296,7 @@ module Types
         return Map(
             map_mat,
             fallback_vec,
-            all_struc_vec[fallback_vec],
-            op_dict
+            all_struc_vec[fallback_vec]
         )
     end
 
@@ -313,10 +310,13 @@ module Types
         end
 
         println(io, "A reduced map with $(length(map.fallback_vec)) unique configurations.")
-        print(io, "There are other $(length(keys(map.op_dict))) equivalent interactions.")
     end
     Base.show(io::IO, map::Map) = show(io, "text/plain", map)
 
 
-    const CenterMap = AbstractVector{Map}
+    struct CoeffMatRef
+        group_idx::Int
+        pair_vec::AbstractVector{Int}
+        op::SymOp
+    end
 end

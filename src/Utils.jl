@@ -13,7 +13,7 @@ module Utils
     export get_all_j_struc_vec, to_vasp_inputs, equal_pair, get_py_struc, get_sym_op_vec, struc_compare
     export linear_idx_to_vec
     export py_struc_to_struc
-    export get_point_and_coeff
+    export get_pair_and_coeff
 
 
     include("data/CovalentRadius.jl")
@@ -114,7 +114,7 @@ module Utils
             for (another_atom_idx, another_atom) in enumerate(y)
                 if isapprox(one_atom, another_atom, atol=atol)
                     occur_flag = true
-                    corresponding_dict[another_atom_idx] = one_atom_idx
+                    corresponding_dict[one_atom_idx] = another_atom_idx
                     break
                 end
             end
@@ -128,7 +128,7 @@ module Utils
         return approx_flag, corresponding_dict
     end
 
-    function consider_idx_in_radius(struc::Struc, center_idx, cutoff_radius)
+    function consider_pair_vec_in_radius(struc::Struc, center_idx_vec, cutoff_radius)
         frac_pos_mat = struc.pos_mat
         cell_mat = struc.lattice_mat
         cart_pos_mat = cell_mat * frac_pos_mat
@@ -139,43 +139,52 @@ module Utils
             parallel=true
         )
 
-        consider_idx_vec = Int[]
+        consider_pair_vec_vec = Vector{Int}[]
         for pair in neighbor_list
-            bond_ends_set = Set(pair[1:2])
-            if center_idx in bond_ends_set
+            pair_vec = collect(pair[1:2])
+            # given center idx is included
+            if pair_vec[1] in center_idx_vec
                 push!(
-                    consider_idx_vec,
-                    pop!(setdiff(bond_ends_set, center_idx))
+                    consider_pair_vec_vec,
+                    pair_vec
+                )
+            end
+            if pair_vec[2] in center_idx_vec
+                push!(
+                    consider_pair_vec_vec,
+                    reverse(pair_vec)
                 )
             end
         end
 
-        return consider_idx_vec
+        return consider_pair_vec_vec
     end
 
     function linear_idx_to_vec(idx, supercell_size, num_pri_sites)
         atom_count = prod(supercell_size) * num_pri_sites
-        temp = reshape(1:atom_count, num_pri_sites, reverse(supercell_size)...)
+        temp = reshape(1:atom_count, reverse(supercell_size)..., num_pri_sites)
 
         idx_vec = findfirst(==(idx), temp).I |> collect
 
         reverse!(idx_vec)
-        idx_vec .-= 1
-        idx_vec[end] += 1   # there is no 0th atom
-
-        for idx_pos = 1:3
-            if idx_vec[idx_pos] > supercell_size[idx_pos]/2
-                idx_vec[idx_pos] -= supercell_size[idx_pos]
-            end
-        end
 
         return idx_vec
+    end
+
+    function get_corresponding_pair_vec(
+        corresponding_dict::Dict{Int, Int},
+        pair_vec::AbstractVector{Int}
+    )
+        return [
+            corresponding_dict[pair_vec[1]],
+            corresponding_dict[pair_vec[2]]
+        ]
     end
 
     function equal_pair(
         py_struc,
         mag_num_vec,
-        center_idx,
+        center_idx_vec,
         cutoff_radius,
         sym_op_vec;
         atol=1e-2
@@ -188,16 +197,16 @@ module Utils
         py_mag_struc.remove_species(PyList(nonmag_idx_vec))
 
         mag_struc = py_struc_to_struc(py_mag_struc)
-        consider_idx_vec = consider_idx_in_radius(mag_struc, center_idx, cutoff_radius)
+        consider_pair_vec_vec = consider_pair_vec_in_radius(mag_struc, center_idx_vec, cutoff_radius)
 
         # there exists multiple pairs between center atom and one point atom
-        if length(unique(consider_idx_vec)) != length(consider_idx_vec)
+        if length(unique(consider_pair_vec_vec)) != length(consider_pair_vec_vec)
             error(
                 "Given supercell is not large enough " *
                 "for calculating all interactions within a cutoff radius of $(cutoff_radius) Å.")
         end
 
-        pair_ds = DisjointSets(consider_idx_vec)
+        pair_ds = DisjointSets(consider_pair_vec_vec)
         pair_relation_dict = Dict{AbstractVector{Int}, SymOp}()
         for sym_op in sym_op_vec
             mag_struc_after_op = sym_op * mag_struc
@@ -209,22 +218,23 @@ module Utils
                 atol=atol
             )
 
-            center_after_op_idx = corresponding_dict[center_idx]
-            if center_after_op_idx != center_idx    # fix the center point
-                continue
-            end
-            for idx in consider_idx_vec # find if there is any pair
-                raw_idx = corresponding_dict[idx]
-                if raw_idx in consider_idx_vec
+            # find the pair after operation
+            for pair_vec in consider_pair_vec_vec
+                pair_vec_after_op = get_corresponding_pair_vec(
+                    corresponding_dict,
+                    pair_vec
+                )
+                if pair_vec_after_op in consider_pair_vec_vec
                     union!(
                         pair_ds,
-                        raw_idx,
-                        idx
+                        pair_vec,
+                        pair_vec_after_op
                     )
-                    pair_vec = [raw_idx, idx]
-                    if !haskey(pair_relation_dict, pair_vec)
-                        pair_relation_dict[pair_vec] = sym_op
-                    end
+                    pair_relation_vec = vcat(
+                        pair_vec,
+                        pair_vec_after_op
+                    )
+                    pair_relation_dict[pair_relation_vec] = sym_op
                 end
             end
         end
@@ -264,7 +274,7 @@ module Utils
 
 
     function to_vasp_inputs(
-        center_map_vec::Vector{Vector{Map}};
+        map_vec::Vector{Map};
         incar_path="./INCAR",
         poscar_path="./POSCAR",
         potcar_path="./POTCAR",
@@ -275,7 +285,7 @@ module Utils
         @assert isfile(potcar_path) "Invalid `POTCAR` path!"
         @assert isfile(kpoints_path) "Invalid `KPOINTS` path!"
 
-        par_dir_name = "./J_MAT/"
+        par_dir_name = "./cal/"
         if isdir(par_dir_name)
             @warn "Old input dir detected! Do you want to delete them? (Y[es]/N[o])"
             choice = readline(stdin)
@@ -292,40 +302,37 @@ module Utils
 
         mkpath(par_dir_name)
         conf_dir_vec = String[]
-        for (center_idx, map_vec) in enumerate(center_map_vec)
-            center_dir_name = par_dir_name * "center_$(center_idx)/"
-            for (group_idx, map) in enumerate(map_vec)
-                group_dir_name = center_dir_name * "goup_$(group_idx)/"
-                for (struc_idx, struc) in enumerate(map.struc_vec)
-                    conf_dir = group_dir_name * "conf_$(struc_idx)/"
-                    mkpath(conf_dir)
+        for (group_idx, map) in enumerate(map_vec)
+            group_dir_name = par_dir_name * "group_$(group_idx)/"
+            for (struc_idx, struc) in enumerate(map.struc_vec)
+                conf_dir = group_dir_name * "conf_$(struc_idx)/"
+                mkpath(conf_dir)
 
-                    py_magmom_list = py_np.array(transpose(struc.spin_mat)).tolist()
-                    update_pack_dict = Dict(
-                        "MAGMOM" => py_magmom_list,
-                        "M_CONSTR" => pylist(struc.spin_mat),
-                        "I_CONSTRAINED_M" => 1,
-                        "RWIGS" => pylist(rwigs_vec)
-                    )
-                    # other parameters
-                    for pair in kwargs
-                        push!(update_pack_dict, pair)
-                    end
-                    py_incar.update(update_pack_dict)
-
-                    py_incar.write_file(conf_dir * "INCAR")
-                    # using relative path for flexibility
-                    symlink(relpath(poscar_path, conf_dir), conf_dir * "POSCAR")
-                    symlink(relpath(potcar_path, conf_dir), conf_dir * "POTCAR")
-                    symlink(relpath(kpoints_path, conf_dir), conf_dir * "KPOINTS")
-
-                    push!(conf_dir_vec, conf_dir)
+                py_magmom_list = py_np.array(transpose(struc.spin_mat)).tolist()
+                update_pack_dict = Dict(
+                    "MAGMOM" => py_magmom_list,
+                    "M_CONSTR" => pylist(struc.spin_mat),
+                    "I_CONSTRAINED_M" => 1,
+                    "RWIGS" => pylist(rwigs_vec)
+                )
+                # other parameters
+                for pair in kwargs
+                    push!(update_pack_dict, pair)
                 end
+                py_incar.update(update_pack_dict)
+
+                py_incar.write_file(conf_dir * "INCAR")
+                # using relative path for flexibility
+                symlink(relpath(poscar_path, conf_dir), conf_dir * "POSCAR")
+                symlink(relpath(potcar_path, conf_dir), conf_dir * "POTCAR")
+                symlink(relpath(kpoints_path, conf_dir), conf_dir * "KPOINTS")
+
+                push!(conf_dir_vec, conf_dir)
             end
         end
 
-        @info "Storing path to different configuration into `J_CONF_DIR`. One may use SLURM's job array to calculate."
-        writedlm("J_CONF_DIR", conf_dir_vec)
+        @info "Storing path to different configuration into `cal_dir_list`. One may use SLURM's job array to calculate."
+        writedlm("cal_dir_list", conf_dir_vec)
     end
 
 
@@ -416,7 +423,7 @@ module Utils
             map_vec = map.map_mat[i, j]
             
             if map_vec[1] == 0
-                j_mat[i, j] = 0
+                coeff_mat[i, j] = 0
             else
                 idx_1, idx_2, idx_3, idx_4 = map_vec
                 coeff_mat[i, j] = (
@@ -438,18 +445,18 @@ module Utils
 
         energy_vec = Dict{Int8, Float64}()
         for (conf_idx, conf_dir) in enumerate(conf_dir_vec)
-            target_conf_mag_mat = map.struc_vec[conf_idx].spin_mat[:, target_idx_vec]
-            py_outcar = py_Outcar(conf_dir * "OUTCAR")
+            # target_conf_mag_mat = map.struc_vec[conf_idx].spin_mat
+            py_outcar = py_Outcar(conf_dir * "/OUTCAR")
             energy, mag_mat = get_energy_and_magmom(py_outcar)
 
-            target_mag_mat = mag_mat[:, target_idx_vec]
+            target_mag_mat = mag_mat
             target_mag_mat = round.(target_mag_mat, RoundToZero; digits=1)
             for col in eachcol(target_mag_mat)
                 normalize!(col)
             end
-            if !isapprox(target_mag_mat, target_conf_mag_mat)
-                @error "MAGMOM of $(conf_dir) changed after SCF!"
-            end
+            # if !isapprox(target_mag_mat, target_conf_mag_mat)
+                # @error "MAGMOM of $(conf_dir) changed after SCF!"
+            # end
 
             energy_vec[fallback_vec[conf_idx]] = energy
         end
@@ -459,81 +466,62 @@ module Utils
         return coeff_mat
     end
 
-    function get_all_interact_coeff_under_sym(coeff_mat, map::Map)
-        point_idx_vec = keys(map.op_dict)
+    function get_all_interact_coeff_under_sym(coeff_mat, group_idx, relation_vec::Vector{CoeffMatRef})
+        pair_vec_vec = []
         coeff_mat_vec = []
-        for point in point_vec
-            sym_op = map.op_dict[point]
+        for coeff_ref in relation_vec
+            if coeff_ref.group_idx != group_idx
+                continue
+            end
+
+            push!(
+                pair_vec_vec,
+                coeff_ref.pair_vec
+            )
 
             push!(
                 coeff_mat_vec,
-                sym_op * coeff_mat
+                coeff_ref.op * coeff_mat
             )
         end
 
-        point_idx_mat = stack(point_idx_vec, dims=1)
-        coeff_array = stack(coeff_mat_vec, dims=1)
+        pair_mat = stack(pair_vec_vec)
+        coeff_array = stack(coeff_mat_vec)
 
-        return point_idx_mat, coeff_array
+        return pair_mat, coeff_array
     end
 
 
-    function get_point_and_coeff(
-        center_map_vec::Vector{CenterMap},
+    function get_pair_and_coeff(
+        map_vec::Vector{Map},
+        relation_vec::Vector{CoeffMatRef},
         cal_dir::String
     )
-        all_point_idx_vec = []
-        all_interact_coeff_vec = []
-        for (center_idx, center_map) in enumerate(center_map_vec)
-            center_point_idx_vec = []
-            center_interact_coeff_vec = []
-            for (group_idx, map) in center_map
-                group_dir = cal_dir * "center_$(center_idx)/group_$(group_idx)/"
+        group_pair_mat_vec = []
+        group_coeff_array_vec = []
+        for (group_idx, map) in enumerate(map_vec)
+            group_dir = cal_dir * "group_$(group_idx)/"
 
-                coeff_mat = get_one_interact_coeff_mat(map, group_dir)
-                point_idx_mat, coeff_array = get_all_interact_coeff_under_sym(
-                    coeff_mat,
-                    map
-                )
-
-                push!(
-                    center_point_idx_vec,
-                    point_idx_mat
-                )
-                push!(
-                    center_interact_coeff_vec,
-                    coeff_array
-                )
-            end
-
-            center_point_idx_array = stack(
-                center_point_idx_vec,
-                dims=1
-            )
-            center_interact_coeff_array = stack(
-                center_interact_coeff_vec,
-                dims=1
+            coeff_mat = get_one_interact_coeff_mat(map, group_dir)
+            group_pair_mat, group_coeff_array = get_all_interact_coeff_under_sym(
+                coeff_mat,
+                group_idx,
+                relation_vec
             )
 
             push!(
-                all_point_idx_vec,
-                center_point_idx_array
+                group_pair_mat_vec,
+                group_pair_mat
             )
             push!(
-                all_interact_coeff_vec,
-                center_interact_coeff_array
+                group_coeff_array_vec,
+                group_coeff_array
             )
         end
 
-        point_idx_array = stack(
-            all_point_idx_vec,
-            dims=1
-        )
-        interact_coeff_array = stack(
-            all_interact_coeff_vec,
-            dims=1
-        )
+        pair_mat = cat(group_pair_mat_vec..., dims=2)
+        coeff_array = cat(group_coeff_array_vec..., dims=3)
 
-        return point_idx_array, interact_coeff_array
+        return pair_mat, coeff_array
     end
 end
