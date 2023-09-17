@@ -86,8 +86,8 @@ module ModCore
         )
         @info "There are $(mag_atom_count) atoms taken as magnetic in the given primitive cell."
         @info "The space group number of given structure is $(spg_num) with given `symprec`"
-        py_refined_struc.to("POSCAR")
-        @info "The refined structure has been dumped into \"POSCAR\""
+        py_refined_struc.to("POSCAR_refined")
+        @info "The refined structure has been dumped into \"POSCAR_refined\"."
         
         center_idx_vec = [
             (idx - 1) * prod(supercell_size) + idx
