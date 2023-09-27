@@ -1,5 +1,4 @@
 module ModCore
-    using ProgressMeter
     using FileIO
     using DataStructures: IntDisjointSets, union!, num_groups, find_root!
     using ..Utils
@@ -12,54 +11,43 @@ module ModCore
     function reduce_interact_mat_for_a_pair(
         mag_struc_vec,
         sym_op_vec;
-        show_progress_bar=true,
         atol=1e-2
     )
         mag_struc_count = length(mag_struc_vec)
         @assert mag_struc_count in [18, 36]
 
-        unique_mag_struc_vec = Struc[]
+        unique_mag_struc_dict = Dict{Int, AbstractVector{Struc}}()
         fallback_ds = IntDisjointSets(mag_struc_count)
-        p = Progress(
-            mag_struc_count * length(sym_op_vec);
-            showspeed=true,
-            enabled=show_progress_bar
-        )
         for mag_struc in mag_struc_vec
-            for sym_op in sym_op_vec
-                mag_struc_after_op = sym_op * mag_struc
-                source_uni_num = mag_struc_after_op.uni_num
-
-                occur_flag = false
-                para_lock = Threads.SpinLock()
-                Threads.@threads for mag_struc_occur in unique_mag_struc_vec
-                    target_uni_num = mag_struc_occur.uni_num
-                    approx_flag, _ = struc_compare( # corresponding_dict not needed here
-                        mag_struc_after_op,
+            target_uni_num = mag_struc.uni_num
+            occur_flag = false
+            for (source_uni_num, one_group_struc_vec) in unique_mag_struc_dict
+                for mag_struc_occur in one_group_struc_vec
+                    approx_flag, _ = struc_compare( # corresponding_dict is not needed here
+                        mag_struc,
                         mag_struc_occur,
                         atol=atol
                     )
-                    if source_uni_num != target_uni_num && approx_flag
-                        Threads.lock(para_lock) do
-                            occur_flag = true
 
-                            union!(
-                                fallback_ds,
-                                source_uni_num,
-                                target_uni_num
-                            )
-                        end
+                    if approx_flag
+                        union!(
+                            fallback_ds,
+                            source_uni_num,
+                            target_uni_num
+                        )
+
+                        break
                     end
                 end
+            end
 
-                if !occur_flag
-                    push!(
-                        unique_mag_struc_vec,
-                        mag_struc_after_op
-                    )
-                end
+            if !occur_flag
+                new_group_struc_vec = [
+                    sym_op * mag_struc
+                    for sym_op in sym_op_vec
+                ]
 
-                next!(p)
+                unique_mag_struc_dict[target_uni_num] = new_group_struc_vec
             end
         end
 
@@ -74,8 +62,7 @@ module ModCore
         cutoff_radius;
         atol=1e-2,
         symprec=1e-2,
-        angle_tolerance=5.0,
-        show_progress_bar=true
+        angle_tolerance=5.0
     )
         @info "Absolute tolrance is set to $(atol)"
         @info "Symmetry precision is set to $(symprec)"
@@ -139,12 +126,10 @@ module ModCore
                 temp_struc_vec = get_all_interact_struc_vec(raw_struc, mag_num_vec, pair_vec)
                 mag_struc_vec = [magonly(struc, mag_num_vec) for struc in temp_struc_vec]
 
-                @info "Reducing 4-state interact matrix ..."
                 temp_fallback_ds = reduce_interact_mat_for_a_pair(
                     mag_struc_vec,
                     sym_op_vec;
-                    atol=atol,
-                    show_progress_bar=show_progress_bar
+                    atol=atol
                 )
 
                 energy_num = num_groups(temp_fallback_ds)
@@ -203,7 +188,6 @@ module ModCore
         atol=1e-2,
         symprec=1e-2,
         angle_tolerance=5.0,
-        show_progress_bar=true,
         incar_path="./INCAR",
         poscar_path="./POSCAR",
         potcar_path="./POTCAR",
@@ -218,8 +202,7 @@ module ModCore
             cutoff_radius;
             atol=atol,
             symprec=symprec,
-            angle_tolerance=angle_tolerance,
-            show_progress_bar=show_progress_bar
+            angle_tolerance=angle_tolerance
         )
 
         println()
