@@ -10,10 +10,11 @@ module Utils
     using ..Python
 
 
-    export get_all_j_struc_vec, to_vasp_inputs, equal_pair, get_py_struc, get_sym_op_vec, struc_compare
+    export get_all_interact_struc_vec, to_vasp_inputs, equal_pair, get_py_struc, get_sym_op_vec, struc_compare
     export linear_idx_to_vec
     export py_struc_to_struc
     export get_pair_and_coeff
+    export magonly
 
 
     include("data/CovalentRadius.jl")
@@ -21,16 +22,15 @@ module Utils
 
     function mag_config(mag_count, target_idx_vec)
         @assert length(target_idx_vec) == 2
-        @assert target_idx_vec[1] != target_idx_vec[2]
 
         axes_vec = [1, 2, 3]
-        mag_config_array = zeros(3, mag_count, 36)
-        config_count = 0
+        mag_config_vec = AbstractMatrix{Float64}[]
+        idx_1, idx_2 = target_idx_vec
         for alpha in axes_vec, beta in axes_vec
             left_axes = setdiff(axes_vec, alpha, beta)[end]
 
             for sign_1 = 1:-2:-1, sign_2 = 1:-2:-1
-                config_count += 1
+                mag_config = zeros(3, mag_count)
                 mag_alpha = zeros(3)
                 mag_beta = zeros(3)
                 mag_left = zeros(3)
@@ -39,11 +39,22 @@ module Utils
                 mag_beta[beta] = sign_2
                 mag_left[left_axes] = 1
 
-                mag_config_array[:, target_idx_vec[1], config_count] .= mag_alpha
-                mag_config_array[:, target_idx_vec[2], config_count] .= mag_beta
-                mag_config_array[:, Not(target_idx_vec), config_count] .= mag_left
+                mag_config[:, idx_1] .+= mag_alpha
+                mag_config[:, idx_2] .+= mag_beta
+                mag_config[:, Not(target_idx_vec)] .+= mag_left
+
+                if (idx_1 == idx_2) && (alpha == beta) && iszero(sign_1 + sign_2)
+                    continue
+                end
+                for mag in eachcol(mag_config)
+                    normalize!(mag)
+                end
+                push!(mag_config_vec, mag_config)
             end
         end
+        
+        unique!(mag_config_vec)
+        mag_config_array = stack(mag_config_vec)
 
         return mag_config_array
     end
@@ -74,7 +85,7 @@ module Utils
     end
 
 
-    function get_all_j_struc_vec(struc::Struc, mag_num_vec, target_idx_vec)
+    function get_all_interact_struc_vec(struc::Struc, mag_num_vec, target_idx_vec)
         num_vec = struc.num_vec
 
         mag_flag_vec = [(num in mag_num_vec) for num in num_vec]
@@ -98,11 +109,6 @@ module Utils
         end
 
         return struc_vec
-    end
-
-    # TODO: generate structures used in A matrix
-    function get_all_a_struc_vec_nosym(py_struc, mag_num_vec, target_idx_vec)
-        
     end
 
     function struc_compare(x::Struc, y::Struc; atol=1e-2)
@@ -134,6 +140,7 @@ module Utils
         cart_pos_mat = cell_mat * frac_pos_mat
         neighbor_list = neighborlist(
             eachcol(cart_pos_mat),
+            eachcol(cart_pos_mat),
             cutoff_radius,
             unitcell=cell_mat,
             parallel=true
@@ -147,12 +154,6 @@ module Utils
                 push!(
                     consider_pair_vec_vec,
                     pair_vec
-                )
-            end
-            if pair_vec[2] in center_idx_vec
-                push!(
-                    consider_pair_vec_vec,
-                    reverse(pair_vec)
                 )
             end
         end
@@ -523,5 +524,17 @@ module Utils
         coeff_array = cat(group_coeff_array_vec..., dims=3)
 
         return pair_mat, coeff_array
+    end
+
+    function magonly(struc::Struc, mag_num_vec)
+        mag_flag_vec = [(num in mag_num_vec) for num in struc.num_vec]
+
+        return Struc(
+            struc.uni_num,
+            struc.lattice_mat,
+            struc.num_vec[mag_flag_vec],
+            struc.pos_mat[:, mag_flag_vec],
+            struc.spin_mat[:, mag_flag_vec]
+        )
     end
 end

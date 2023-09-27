@@ -9,8 +9,12 @@ module Types
 
 
     export Struc, SymOp, FallbackList, Map, CoeffMatRef
-    export magonly
 
+    const A_IDX_MAT::Matrix{Vector{Int}} = [
+        [[ 1,  1,  2,  2]] [[ 3,  4,  5,  6]] [[ 7,  8,  9, 10]];
+        [[ 3,  4,  5,  6]] [[11,  1,  2, 12]] [[13, 14, 15, 16]];
+        [[ 7,  8,  9, 10]] [[13, 14, 15, 16]] [[17,  1,  2, 18]]
+    ]
 
     sprintf(fmt::String, args...) = @eval Types @sprintf($(fmt), $(args...))
 
@@ -149,22 +153,10 @@ module Types
         for atom in struc
             print(io, "  ")
             show(io, atom)
-            println()
+            println(io)
         end
     end
     Base.show(io::IO, struc::Struc) = show(io, "text/plain", struc)
-
-    function magonly(struc::Struc, mag_num_vec)
-        mag_flag_vec = [(num in mag_num_vec) for num in struc.num_vec]
-
-        return Struc(
-            struc.uni_num,
-            struc.lattice_mat,
-            struc.num_vec[mag_flag_vec],
-            struc.pos_mat[:, mag_flag_vec],
-            struc.spin_mat[:, mag_flag_vec]
-        )
-    end
 
 
     struct SymOp
@@ -271,15 +263,23 @@ module Types
         fallback_ds::IntDisjointSets,
         all_struc_vec::Vector{Struc},
     )
-        map_mat = [zeros(Int8, 4) for _ = 1:3, _ = 1:3]
-        temp = eachslice(
-            reshape(
-                [find_root!(fallback_ds, idx) for idx = 1:36],
-                (4, 3, 3)
-            ),
-            dims=(2, 3)
-        )
+        parents = fallback_ds.parents
+        if length(parents) == 36
+            temp = eachslice(
+                reshape(
+                    parents,
+                    (4, 3, 3)
+                ),
+                dims=(2, 3)
+            )
+        else length(parents) == 18
+            temp = deepcopy(A_IDX_MAT)
+            for element_comp in temp
+                element_comp .= parents[element_comp]
+            end
+        end
 
+        map_mat = [zeros(Int8, 4) for _ = 1:3, _ = 1:3]
         for idx in eachindex(temp)
             element_comp = temp[idx]
             part1 = element_comp[[1, 4]]

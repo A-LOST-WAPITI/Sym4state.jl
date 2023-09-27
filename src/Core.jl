@@ -9,16 +9,19 @@ module ModCore
     export pre_process
 
 
-    function reduce_j_mat_for_a_pair(
+    function reduce_interact_mat_for_a_pair(
         mag_struc_vec,
         sym_op_vec;
         show_progress_bar=true,
         atol=1e-2
     )
+        mag_struc_count = length(mag_struc_vec)
+        @assert mag_struc_count in [18, 36]
+
         unique_mag_struc_vec = Struc[]
-        fallback_ds = IntDisjointSets(36)
+        fallback_ds = IntDisjointSets(mag_struc_count)
         p = Progress(
-            length(mag_struc_vec) * length(sym_op_vec);
+            mag_struc_count * length(sym_op_vec);
             showspeed=true,
             enabled=show_progress_bar
         )
@@ -133,11 +136,11 @@ module ModCore
 
                 println()
                 @info "Checking pair $(pair_vec) ..."
-                temp_struc_vec = get_all_j_struc_vec(raw_struc, mag_num_vec, pair_vec)
+                temp_struc_vec = get_all_interact_struc_vec(raw_struc, mag_num_vec, pair_vec)
                 mag_struc_vec = [magonly(struc, mag_num_vec) for struc in temp_struc_vec]
 
-                @info "Reducing 4-state J matrix ..."
-                temp_fallback_ds = reduce_j_mat_for_a_pair(
+                @info "Reducing 4-state interact matrix ..."
+                temp_fallback_ds = reduce_interact_mat_for_a_pair(
                     mag_struc_vec,
                     sym_op_vec;
                     atol=atol,
