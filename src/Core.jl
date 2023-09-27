@@ -67,6 +67,7 @@ module ModCore
         @info "Absolute tolrance is set to $(atol)"
         @info "Symmetry precision is set to $(symprec)"
 
+        @info ""
         spg_num, mag_atom_count, sym_op_vec, py_refined_struc = get_sym_op_vec(
             py_struc,
             mag_num_vec,
@@ -74,6 +75,14 @@ module ModCore
             symprec=symprec,
             angle_tolerance=angle_tolerance
         )
+        rotation_sym_flag = false
+        for sym_op in sym_op_vec
+            if check_z_rot(sym_op)
+                rotation_sym_flag = true
+                break
+            end
+        end
+
         @info "There are $(mag_atom_count) atoms taken as magnetic in the given primitive cell."
         @info "The space group number of given structure is $(spg_num) with given `symprec`"
         py_refined_struc.to("POSCAR_refined")
@@ -91,6 +100,7 @@ module ModCore
             sym_op_vec
         )
 
+        @info ""
         ngroups = num_groups(pair_ds)
         @info "There are $(ngroups) different type(s) of pairs."
         pair_vec_vec = pair_ds.revmap
@@ -113,6 +123,9 @@ module ModCore
         relation_vec = CoeffMatRef[]
         map::Union{Nothing, Map} = nothing
         for (group_idx, group_parent) in enumerate(group_parents_vec)
+            @info ""
+            @info "For the $(group_idx)th group:"
+
             min_energy_num = 37 # make sure `min_energy_num` can be updated
             min_pair_vec = Int[]
             for (pair_vec, parent) in zip(pair_vec_vec, parents_vec)
@@ -121,8 +134,6 @@ module ModCore
                     continue
                 end
 
-                println()
-                @info "Checking pair $(pair_vec) ..."
                 temp_struc_vec = get_all_interact_struc_vec(raw_struc, mag_num_vec, pair_vec)
                 mag_struc_vec = [magonly(struc, mag_num_vec) for struc in temp_struc_vec]
 
@@ -135,12 +146,13 @@ module ModCore
                 energy_num = num_groups(temp_fallback_ds)
                 # record the highest symmetry for now
                 if energy_num < min_energy_num
-                    @info "Find pair with higher symmetry!"
+                    @info "Find pair $(pair_vec) with higher symmetry!"
 
                     min_pair_vec = pair_vec
                     temp_map = Map(
                         temp_fallback_ds,
-                        temp_struc_vec
+                        temp_struc_vec;
+                        rotation_symmetry_flag=rotation_sym_flag
                     )
                     min_energy_num = length(temp_map.fallback_vec)
                     map = temp_map

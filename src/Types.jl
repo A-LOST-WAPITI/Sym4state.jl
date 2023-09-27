@@ -261,7 +261,8 @@ module Types
 
     function Map(
         fallback_ds::IntDisjointSets,
-        all_struc_vec::Vector{Struc},
+        all_struc_vec::Vector{Struc};
+        rotation_symmetry_flag=false
     )
         parents = fallback_ds.parents
         if length(parents) == 36
@@ -274,8 +275,14 @@ module Types
             )
         else length(parents) == 18
             temp = deepcopy(A_IDX_MAT)
-            for element_comp in temp
-                element_comp .= parents[element_comp]
+            for (element_idx, element_comp) in enumerate(temp)
+                if rotation_symmetry_flag && element_idx != 9 # only Azz - Axx is nonzero
+                    coeff = 0
+                else
+                    coeff = 1
+                end
+
+                @. element_comp = coeff * parents[element_comp]
             end
         end
 

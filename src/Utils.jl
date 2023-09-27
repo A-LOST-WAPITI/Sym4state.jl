@@ -15,6 +15,7 @@ module Utils
     export py_struc_to_struc
     export get_pair_and_coeff
     export magonly
+    export check_z_rot
 
 
     include("data/CovalentRadius.jl")
@@ -133,6 +134,24 @@ module Utils
 
         return approx_flag, corresponding_dict
     end
+
+    function check_z_rot_mat(x::AbstractMatrix{T}; atol::T=1e-2) where T
+        @assert size(x) == (3, 3)
+
+        temp::Vector{T} = [0 ,0, 1]
+        r_mat = x[1:2, 1:2]
+        if !isapprox(x[:, 3], temp, atol=atol) || !isapprox(x[3, :], temp, atol=atol)
+            return false
+        elseif !isapprox(r_mat * transpose(r_mat), I, atol=atol) || !isapprox(det(r_mat), 1, atol=atol)
+            return false
+        elseif !isapprox(r_mat, I, atol=atol)
+            return false
+        end
+
+        return true
+    end
+
+    check_z_rot(op::SymOp; atol=1e-2) = check_z_rot_mat(op.rot_mat, atol=atol)
 
     function consider_pair_vec_in_radius(struc::Struc, center_idx_vec, cutoff_radius)
         frac_pos_mat = struc.pos_mat
