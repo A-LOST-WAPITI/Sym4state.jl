@@ -2,7 +2,6 @@ module Utils
     using InvertedIndices
     using LinearAlgebra
     using DelimitedFiles
-    using PythonCall
     using Printf
     using CellListMap: neighborlist
     using DataStructures: DisjointSets, find_root!, num_groups
@@ -19,6 +18,12 @@ module Utils
 
 
     include("data/CovalentRadius.jl")
+
+    const A_COEFF_MAT::Matrix{Float64} = [
+        2 1 1;
+        1 2 1;
+        1 1 2
+    ]
 
 
     function mag_config(mag_count, target_idx_vec)
@@ -213,17 +218,15 @@ module Utils
         # magnetic atoms
         py_mag_struc = py_struc.copy()
         num_vec = pyconvert(Vector, py_struc.atomic_numbers)
-        nonmag_idx_vec = setdiff(unique(num_vec), mag_num_vec)
-        py_mag_struc.remove_species(PyList(nonmag_idx_vec))
+        nonmag_num_vec = setdiff(unique(num_vec), mag_num_vec)
+        py_mag_struc.remove_species(PyList(nonmag_num_vec))
 
         mag_struc = py_struc_to_struc(py_mag_struc)
         consider_pair_vec_vec = consider_pair_vec_in_radius(mag_struc, center_idx_vec, cutoff_radius)
 
         # there exists multiple pairs between center atom and one point atom
         if length(unique(consider_pair_vec_vec)) != length(consider_pair_vec_vec)
-            error(
-                "Given supercell is not large enough " *
-                "for calculating all interactions within a cutoff radius of $(cutoff_radius) Å.")
+            return nothing, nothing
         end
 
         pair_ds = DisjointSets(consider_pair_vec_vec)
@@ -360,34 +363,12 @@ module Utils
 
 
     function get_sym_op_vec(
-        py_struc,
-        mag_num_vec,
-        supercell_size;
-        symprec=1e-2,
-        angle_tolerance=5.0
+        py_sga
     )
-        py_sga = py_Sga(
-            py_struc,
-            symprec=symprec,
-            angle_tolerance=angle_tolerance
-        )
-        py_refined_struc = py_sga.get_refined_structure()
-        py_num_vec = py_refined_struc.atomic_numbers
-        num_vec = pyconvert(Vector{Int64}, py_num_vec)
-        mag_atom_count = count(x -> x ∈ mag_num_vec, num_vec)
-
-        py_refined_struc.make_supercell(supercell_size)
-        py_sga = py_Sga(
-            py_refined_struc,
-            symprec=symprec,
-            angle_tolerance=angle_tolerance
-        )
-        
         py_sym_dict = py_sga.get_symmetry_dataset()
 
-        spg_num = pyconvert(Int64, py_sym_dict["number"])
         lattice_mat = permutedims(
-            pyconvert(Array{Float64}, py_refined_struc.lattice.matrix),
+            pyconvert(Array{Float64}, py_sga._structure.lattice.matrix),
             (2, 1)
         )
         inv_lattive_mat = inv(lattice_mat)
@@ -419,7 +400,7 @@ module Utils
             end
         end
 
-        return spg_num, mag_atom_count, op_vec, py_refined_struc
+        return op_vec
     end
 
 
@@ -453,6 +434,10 @@ module Utils
                     energy_vec[idx_4]
                 )/4
             end
+        end
+
+        if map.type == 2
+            coeff_mat .*= A_COEFF_MAT
         end
 
         return coeff_mat

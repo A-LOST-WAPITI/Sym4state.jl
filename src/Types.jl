@@ -257,6 +257,7 @@ module Types
         map_mat::Matrix{Vector{Int8}}
         fallback_vec::Vector{Int8}
         struc_vec::Vector{Struc}
+        type::Int
     end
 
     function Map(
@@ -266,6 +267,7 @@ module Types
     )
         parents = fallback_ds.parents
         if length(parents) == 36
+            type = 1    # J matrix
             temp = eachslice(
                 reshape(
                     parents,
@@ -274,6 +276,7 @@ module Types
                 dims=(2, 3)
             )
         else length(parents) == 18
+            type = 2    # A matrix
             temp = deepcopy(A_IDX_MAT)
             for (element_idx, element_comp) in enumerate(temp)
                 if rotation_symmetry_flag && element_idx != 9 # only Azz - Axx is nonzero
@@ -303,7 +306,8 @@ module Types
         return Map(
             map_mat,
             fallback_vec,
-            all_struc_vec[fallback_vec]
+            all_struc_vec[fallback_vec],
+            type
         )
     end
 
@@ -315,8 +319,9 @@ module Types
             end
             println(io)
         end
+        type_str = isone(map.type) ? "J" : "A"
 
-        println(io, "A reduced map with $(length(map.fallback_vec)) unique configurations.")
+        println(io, "A reduced \"$(type_str)\" matrix with $(length(map.fallback_vec)) unique configurations.")
     end
     Base.show(io::IO, map::Map) = show(io, "text/plain", map)
 
