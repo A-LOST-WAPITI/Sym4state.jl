@@ -2,7 +2,7 @@ module Python
     using PythonCall
 
 
-    export pyconvert
+    export pyconvert, PyList, pylist
     export py_Struc, py_Incar, py_Outcar, py_Sga, py_np
 
 

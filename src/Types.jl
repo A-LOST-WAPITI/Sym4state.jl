@@ -11,9 +11,9 @@ module Types
     export Struc, SymOp, FallbackList, Map, CoeffMatRef
 
     const A_IDX_MAT::Matrix{Vector{Int}} = [
-        [[ 1,  1,  2,  2]] [[ 3,  4,  5,  6]] [[ 7,  8,  9, 10]];
-        [[ 3,  4,  5,  6]] [[11,  1,  2, 12]] [[13, 14, 15, 16]];
-        [[ 7,  8,  9, 10]] [[13, 14, 15, 16]] [[17,  1,  2, 18]]
+        [[ 1,  2,  3,  4]] [[ 5,  6,  7,  8]] [[ 9, 10, 11, 12]];
+        [[ 5,  6,  7,  8]] [[13,  2,  4, 14]] [[15, 16, 17, 18]];
+        [[ 9, 10, 11, 12]] [[15, 16, 17, 18]] [[19,  1,  3, 20]]
     ]
 
     sprintf(fmt::String, args...) = @eval Types @sprintf($(fmt), $(args...))
@@ -275,7 +275,7 @@ module Types
                 ),
                 dims=(2, 3)
             )
-        else length(parents) == 18
+        else length(parents) == 20
             type = 2    # A matrix
             temp = deepcopy(A_IDX_MAT)
             for (element_idx, element_comp) in enumerate(temp)

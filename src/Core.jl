@@ -15,7 +15,7 @@ module ModCore
         atol=1e-2
     )
         mag_struc_count = length(mag_struc_vec)
-        @assert mag_struc_count in [18, 36]
+        @assert mag_struc_count in [20, 36]
 
         unique_mag_struc_dict = Dict{Int, AbstractVector{Struc}}()
         fallback_ds = IntDisjointSets(mag_struc_count)
@@ -112,7 +112,8 @@ module ModCore
         atol=1e-2,
         symprec=1e-2,
         angle_tolerance=5.0,
-        max_supercell=10
+        max_supercell=10,
+        s_value=1.0
     )
         @info "Absolute tolrance is set to $(atol)"
         @info "Symmetry precision is set to $(symprec)"
@@ -208,7 +209,7 @@ module ModCore
                     continue
                 end
 
-                temp_struc_vec = get_all_interact_struc_vec(raw_struc, mag_num_vec, pair_vec)
+                temp_struc_vec = get_all_interact_struc_vec(raw_struc, mag_num_vec, pair_vec, s_value)
                 mag_struc_vec = [magonly(struc, mag_num_vec) for struc in temp_struc_vec]
 
                 temp_fallback_ds = reduce_interact_mat_for_a_pair(
@@ -269,11 +270,13 @@ module ModCore
     function pre_process(
         filepath,
         mag_num_vec,
-        supercell_size,
         cutoff_radius;
+        supercell_size::Union{Nothing, AbstractVector{Int}}=nothing,
         atol=1e-2,
         symprec=1e-2,
         angle_tolerance=5.0,
+        max_supercell=10,
+        s_value=1.0,
         incar_path="./INCAR",
         poscar_path="./POSCAR",
         potcar_path="./POTCAR",
@@ -284,11 +287,13 @@ module ModCore
         map_vec, relation_vec = sym4state(
             py_struc,
             mag_num_vec,
-            supercell_size,
             cutoff_radius;
             atol=atol,
             symprec=symprec,
-            angle_tolerance=angle_tolerance
+            angle_tolerance=angle_tolerance,
+            supercell_size=supercell_size,
+            max_supercell=max_supercell,
+            s_value=s_value
         )
 
         println()

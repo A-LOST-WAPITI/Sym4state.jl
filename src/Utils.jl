@@ -1,5 +1,5 @@
 module Utils
-    using InvertedIndices
+    using InvertedIndices: Not
     using LinearAlgebra
     using DelimitedFiles
     using Printf
@@ -26,16 +26,33 @@ module Utils
     ]
 
 
-    function mag_config(mag_count, target_idx_vec)
+    function mag_config(mag_count, target_idx_vec, s_value)
         @assert length(target_idx_vec) == 2
 
         axes_vec = [1, 2, 3]
+        sign_vec = [1, -1]
         mag_config_vec = AbstractMatrix{Float64}[]
         idx_1, idx_2 = target_idx_vec
+        axx_count = 0
         for alpha in axes_vec, beta in axes_vec
-            left_axes = setdiff(axes_vec, alpha, beta)[end]
+            left_axes = setdiff(axes_vec, alpha, beta)
+            for sign_1 in sign_vec, sign_2 in sign_vec
+                if (idx_1 == idx_2) && (alpha == beta)
+                    if (alpha == 1) # Axx need 4 configs
+                        sign_2 = sign_1
+                        # Calculing Ayy - Axx will change `left_axe` to z
+                        # while calculating Azz - Axx will change `left_axe` to y
+                        left_axe = iszero(axx_count % 2) ? left_axes[1] : left_axes[end]
+                        axx_count += 1
+                    elseif iszero(sign_1 + sign_2)
+                        continue
+                    else
+                        left_axe = left_axes[end]
+                    end
+                else    # only one axe will be left
+                    left_axe = left_axes[end]
+                end
 
-            for sign_1 = 1:-2:-1, sign_2 = 1:-2:-1
                 mag_config = zeros(3, mag_count)
                 mag_alpha = zeros(3)
                 mag_beta = zeros(3)
@@ -43,15 +60,14 @@ module Utils
 
                 mag_alpha[alpha] = sign_1
                 mag_beta[beta] = sign_2
-                mag_left[left_axes] = 1
+                mag_left[left_axe] = 1
 
                 mag_config[:, idx_1] .+= mag_alpha
                 mag_config[:, idx_2] .+= mag_beta
                 mag_config[:, Not(target_idx_vec)] .+= mag_left
 
-                if (idx_1 == idx_2) && (alpha == beta) && iszero(sign_1 + sign_2)
-                    continue
-                end
+                mag_config .*= s_value
+
                 for mag in eachcol(mag_config)
                     normalize!(mag)
                 end
@@ -91,12 +107,12 @@ module Utils
     end
 
 
-    function get_all_interact_struc_vec(struc::Struc, mag_num_vec, target_idx_vec)
+    function get_all_interact_struc_vec(struc::Struc, mag_num_vec, target_idx_vec, s_value)
         num_vec = struc.num_vec
 
         mag_flag_vec = [(num in mag_num_vec) for num in num_vec]
         mag_count = sum(mag_flag_vec)
-        mag_config_array = mag_config(mag_count, target_idx_vec)
+        mag_config_array = mag_config(mag_count, target_idx_vec, s_value)
 
         struc_vec = Struc[]
         for idx in axes(mag_config_array, 3)
@@ -126,7 +142,10 @@ module Utils
             for (another_atom_idx, another_atom) in enumerate(y)
                 if isapprox(one_atom, another_atom, atol=atol)
                     occur_flag = true
-                    corresponding_dict[one_atom_idx] = another_atom_idx
+                    # Operation will also change the index
+                    # if atom i was moved to a position same as
+                    # raw atom j, which is to say that `y[i] = x[j]`
+                    corresponding_dict[another_atom_idx] = one_atom_idx
                     break
                 end
             end
@@ -248,12 +267,16 @@ module Utils
                     pair_vec
                 )
                 if pair_vec_after_op in consider_pair_vec_vec
-                    union!(
-                        pair_ds,
+                    pair_relation_vec = vcat(
                         pair_vec,
                         pair_vec_after_op
                     )
-                    pair_relation_vec = vcat(
+                    if haskey(pair_relation_dict, pair_relation_vec)
+                        continue
+                    end
+
+                    union!(
+                        pair_ds,
                         pair_vec,
                         pair_vec_after_op
                     )
