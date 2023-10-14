@@ -1,6 +1,7 @@
 module ModCore
     using FileIO
     using DataStructures: IntDisjointSets, union!, num_groups, find_root!
+    using LinearAlgebra: norm
     using ..Python
     using ..Utils
     using ..Types
@@ -246,11 +247,12 @@ module ModCore
                     min_pair_vec,
                     pair_vec
                 )
-                center_idx = linear_idx_to_vec(pair_vec[1], supercell_size, mag_atom_count)
-                point_idx = linear_idx_to_vec(pair_vec[2], supercell_size, mag_atom_count)
-
-                cell_idx_diff = point_idx[2:end] .- center_idx[2:end]
-                fixed_pair_vec = vcat(center_idx[1], cell_idx_diff[1:2], point_idx[1])
+                fixed_pair_vec = get_fixed_pair_vec(
+                    raw_struc,
+                    mag_num_vec,
+                    supercell_size,
+                    pair_vec
+                )
                 coeff_ref = CoeffMatRef(
                     group_idx,
                     fixed_pair_vec,
