@@ -5,11 +5,16 @@ module Types
     using PeriodicTable
     using Printf
     using CellListMap
+    using DataStructures: IntDisjointSets, find_root!
 
 
-    export Struc, SymOp, FallbackList, Map
-    export magonly
+    export Struc, SymOp, FallbackList, Map, CoeffMatRef
 
+    const A_IDX_MAT::Matrix{Vector{Int}} = [
+        [[ 1,  2,  3,  4]] [[ 5,  6,  7,  8]] [[ 9, 10, 11, 12]];
+        [[ 5,  6,  7,  8]] [[13,  2,  4, 14]] [[15, 16, 17, 18]];
+        [[ 9, 10, 11, 12]] [[15, 16, 17, 18]] [[19,  1,  3, 20]]
+    ]
 
     sprintf(fmt::String, args...) = @eval Types @sprintf($(fmt), $(args...))
 
@@ -59,7 +64,7 @@ module Types
     end
 
     function Base.show(io::IO, ::MIME"text/plain", atom::Atom)
-        println(
+        print(
             io,
             @sprintf("%3s", elements[atom.num].symbol) *
                 " @ " * vec2str(atom.pos) *
@@ -110,38 +115,27 @@ module Types
             return nothing
         else
             return (
-                Atom(
-                    struc.num_vec[state],
-                    struc.pos_mat[:, state],
-                    struc.spin_mat[:, state]
-                ),
+                struc[state],
                 state + 1
             )
         end
     end
 
-    Base.length(struc::Struc) = struc.atom_count
+    Base.length(struc::Struc) = length(struc.atom_count)
 
-    Base.isapprox(x::Struc, y::Struc; atol=1e-2) = begin
-        approx_flag = true
-
-        for one_atom in x
-            occur_flag = false
-            for another_atom in y
-                if isapprox(one_atom, another_atom, atol=atol)
-                    occur_flag = true
-                    break
-                end
-            end
-
-            if !occur_flag
-                approx_flag = false
-                break
-            end
-        end
-
-        return approx_flag
-    end
+    Base.getindex(struc::Struc, idx::Int) = @views Atom(
+        struc.num_vec[idx],
+        struc.pos_mat[:, idx],
+        struc.spin_mat[:, idx]
+    )
+    Base.getindex(struc::Struc, idics::Union{AbstractRange, AbstractVector}) = [
+        @views Atom(
+            struc.num_vec[idx],
+            struc.pos_mat[:, idx],
+            struc.spin_mat[:, idx]
+        )
+        for idx in idics
+    ]
 
     function Base.show(io::IO, ::MIME"text/plain", struc::Struc)
         println(io, "Structure Summary:")
@@ -159,21 +153,10 @@ module Types
         for atom in struc
             print(io, "  ")
             show(io, atom)
+            println(io)
         end
     end
     Base.show(io::IO, struc::Struc) = show(io, "text/plain", struc)
-
-    function magonly(struc::Struc, mag_num_vec)
-        mag_flag_vec = [(num in mag_num_vec) for num in struc.num_vec]
-
-        return Struc(
-            struc.uni_num,
-            struc.lattice_mat,
-            struc.num_vec[mag_flag_vec],
-            struc.pos_mat[:, mag_flag_vec],
-            struc.spin_mat[:, mag_flag_vec]
-        )
-    end
 
 
     struct SymOp
@@ -216,6 +199,13 @@ module Types
             new_pos_mat,
             new_spin
         )
+    end
+
+    Base.:*(op::SymOp, mat::AbstractMatrix) = begin
+        @assert size(mat) == (3, 3)
+        new_mat = op.spin_rot_mat * mat * transpose(op.spin_rot_mat)
+
+        return new_mat
     end
 
     function Base.show(io::IO, ::MIME"text/plain", sym_op::SymOp)
@@ -263,43 +253,43 @@ module Types
     Base.show(io::IO, sym_op::SymOp) = show(io, "text/plain", sym_op)
 
 
-    struct FallbackList
-        len::Int64
-        tree::Vector
-    end
-    FallbackList(len::Int64) = FallbackList(len, zeros(Int64, len))
-    function (fallback::FallbackList)(idx::Int64)
-        @assert idx <= fallback.len
-
-        parent_idx = fallback.tree[idx]
-        if iszero(parent_idx)
-            return idx
-        else
-            fallback(parent_idx)
-        end
-    end
-
-    function (fallback::FallbackList)(idx, target_idx)
-        @assert 0 < idx <= fallback.len
-        @assert 0 < target_idx <= fallback.len
-
-        former_target = fallback.tree[idx]
-        if iszero(former_target) || former_target > target_idx
-            fallback.tree[idx] = target_idx
-        end
-    end
-
-
     struct Map
         map_mat::Matrix{Vector{Int8}}
         fallback_vec::Vector{Int8}
         struc_vec::Vector{Struc}
+        type::Int
     end
 
-    function Map(fallback::FallbackList, all_struc_vec::Vector{Struc})
-        map_mat = [zeros(Int8, 4) for _ = 1:3, _ = 1:3]
-        temp = eachslice(reshape(fallback.(1:36), (4, 3, 3)), dims=(2, 3))
+    function Map(
+        fallback_ds::IntDisjointSets,
+        all_struc_vec::Vector{Struc};
+        rotation_symmetry_flag=false
+    )
+        parents = fallback_ds.parents
+        if length(parents) == 36
+            type = 1    # J matrix
+            temp = eachslice(
+                reshape(
+                    parents,
+                    (4, 3, 3)
+                ),
+                dims=(2, 3)
+            )
+        else length(parents) == 20
+            type = 2    # A matrix
+            temp = deepcopy(A_IDX_MAT)
+            for (element_idx, element_comp) in enumerate(temp)
+                if rotation_symmetry_flag && element_idx != 9 # only Azz - Axx is nonzero
+                    coeff = 0
+                else
+                    coeff = 1
+                end
 
+                @. element_comp = coeff * parents[element_comp]
+            end
+        end
+
+        map_mat = [zeros(Int8, 4) for _ = 1:3, _ = 1:3]
         for idx in eachindex(temp)
             element_comp = temp[idx]
             part1 = element_comp[[1, 4]]
@@ -316,7 +306,8 @@ module Types
         return Map(
             map_mat,
             fallback_vec,
-            all_struc_vec[fallback_vec]
+            all_struc_vec[fallback_vec],
+            type
         )
     end
 
@@ -328,8 +319,16 @@ module Types
             end
             println(io)
         end
+        type_str = isone(map.type) ? "J" : "A"
 
-        print(io, "A reduced map with $(length(map.fallback_vec)) unique configurations")
+        println(io, "A reduced \"$(type_str)\" matrix with $(length(map.fallback_vec)) unique configurations.")
     end
     Base.show(io::IO, map::Map) = show(io, "text/plain", map)
+
+
+    struct CoeffMatRef
+        group_idx::Int
+        pair_vec::AbstractVector{Int}
+        op::SymOp
+    end
 end

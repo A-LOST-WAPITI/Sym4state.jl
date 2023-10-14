@@ -1,79 +1,130 @@
 module Utils
-    using InvertedIndices
+    using InvertedIndices: Not
     using LinearAlgebra
     using DelimitedFiles
-    using PythonCall
     using Printf
+    using CellListMap: neighborlist
+    using DataStructures: DisjointSets, find_root!, num_groups
     using ..Types
     using ..Python
 
 
-    export get_all_j_struc_vec, to_vasp_inputs, equal_pair, get_py_struc, get_sym_op_vec, get_j_mat
+    export get_all_interact_struc_vec, to_vasp_inputs, equal_pair, get_py_struc, get_sym_op_vec, struc_compare
+    export linear_idx_to_vec
+    export py_struc_to_struc
+    export get_pair_and_coeff
+    export magonly
+    export check_z_rot
+    export get_fixed_pair_vec
 
 
     include("data/CovalentRadius.jl")
 
+    const A_COEFF_MAT::Matrix{Float64} = [
+        2 1 1;
+        1 2 1;
+        1 1 2
+    ]
 
-    function mag_config(mag_count, target_idx_vec)
+
+    function mag_config(mag_count, target_idx_vec, s_value)
         @assert length(target_idx_vec) == 2
-        @assert target_idx_vec[1] != target_idx_vec[2]
 
         axes_vec = [1, 2, 3]
-        mag_config_array = zeros(3, mag_count, 36)
-        config_count = 0
+        sign_vec = [1, -1]
+        mag_config_vec = AbstractMatrix{Float64}[]
+        idx_1, idx_2 = target_idx_vec
+        axx_count = 0
         for alpha in axes_vec, beta in axes_vec
-            left_axes = setdiff(axes_vec, alpha, beta)[end]
+            left_axes = setdiff(axes_vec, alpha, beta)
+            for sign_1 in sign_vec, sign_2 in sign_vec
+                if (idx_1 == idx_2) && (alpha == beta)
+                    if (alpha == 1) # Axx need 4 configs
+                        sign_2 = sign_1
+                        # Calculing Ayy - Axx will change `left_axe` to z
+                        # while calculating Azz - Axx will change `left_axe` to y
+                        left_axe = iszero(axx_count % 2) ? left_axes[1] : left_axes[end]
+                        axx_count += 1
+                    elseif iszero(sign_1 + sign_2)
+                        continue
+                    else
+                        left_axe = left_axes[end]
+                    end
+                else    # only one axe will be left
+                    left_axe = left_axes[end]
+                end
 
-            for sign_1 = 1:-2:-1, sign_2 = 1:-2:-1
-                config_count += 1
+                mag_config = zeros(3, mag_count)
                 mag_alpha = zeros(3)
                 mag_beta = zeros(3)
                 mag_left = zeros(3)
 
                 mag_alpha[alpha] = sign_1
                 mag_beta[beta] = sign_2
-                mag_left[left_axes] = 1
+                mag_left[left_axe] = 1
 
-                mag_config_array[:, target_idx_vec[1], config_count] .= mag_alpha
-                mag_config_array[:, target_idx_vec[2], config_count] .= mag_beta
-                mag_config_array[:, Not(target_idx_vec), config_count] .= mag_left
+                mag_config[:, idx_1] .+= mag_alpha
+                mag_config[:, idx_2] .+= mag_beta
+                mag_config[:, Not(target_idx_vec)] .+= mag_left
+
+                mag_config .*= s_value
+
+                for mag in eachcol(mag_config)
+                    normalize!(mag)
+                end
+                push!(mag_config_vec, mag_config)
             end
         end
+        
+        unique!(mag_config_vec)
+        mag_config_array = stack(mag_config_vec)
 
         return mag_config_array
     end
 
 
-    function get_all_j_struc_vec(py_struc, mag_num_vec, target_idx_vec)
-        py_lattice_mat = py_struc.lattice.matrix
-        py_pos_mat = py_struc.frac_coords
+    function py_struc_to_struc(py_struc; idx::Int=1, spin_mat::Union{Nothing, AbstractMatrix}=nothing)
+        py_lattice_mat = py_struc.lattice.matrix.transpose()
+        py_pos_mat = py_struc.frac_coords.transpose()
         py_num_vec = py_struc.atomic_numbers
 
-        lattice_mat = permutedims(
-            pyconvert(Matrix{Float64}, py_lattice_mat),
-            (2, 1)
-        )
-        pos_mat = permutedims(
-            pyconvert(Matrix{Float64}, py_pos_mat),
-            (2, 1)
-        )
+        lattice_mat = pyconvert(Matrix{Float64}, py_lattice_mat)
+        pos_mat = pyconvert(Matrix{Float64}, py_pos_mat)
         pos_mat = mod1.(pos_mat, 1)
         num_vec = pyconvert(Vector{Int64}, py_num_vec)
+        if isa(spin_mat, Nothing)
+            spin_mat = zero(pos_mat)
+        end
+
+        struc = Struc(
+            idx,
+            lattice_mat,
+            num_vec,
+            pos_mat,
+            spin_mat
+        )
+
+        return struc
+    end
+
+
+    function get_all_interact_struc_vec(struc::Struc, mag_num_vec, target_idx_vec, s_value)
+        num_vec = struc.num_vec
 
         mag_flag_vec = [(num in mag_num_vec) for num in num_vec]
         mag_count = sum(mag_flag_vec)
-        mag_config_array = mag_config(mag_count, target_idx_vec)
+        mag_config_array = mag_config(mag_count, target_idx_vec, s_value)
 
         struc_vec = Struc[]
         for idx in axes(mag_config_array, 3)
-            spin_mat = zero(pos_mat)
+            spin_mat = zeros(3, length(num_vec))
             spin_mat[:, mag_flag_vec] .= mag_config_array[:, :, idx]
 
             struc = Struc(
                 idx,
-                lattice_mat,
-                num_vec,
-                pos_mat,
+                struc.lattice_mat,
+                struc.num_vec,
+                struc.pos_mat,
                 spin_mat
             )
 
@@ -83,66 +134,189 @@ module Utils
         return struc_vec
     end
 
-    # TODO: generate structures used in A matrix
-    function get_all_a_struc_vec_nosym(py_struc, mag_num_vec, target_idx_vec)
-        
+    function struc_compare(x::Struc, y::Struc; atol=1e-2)
+        approx_flag = true
+
+        corresponding_dict = Dict{Int, Int}()
+        for (one_atom_idx, one_atom) in enumerate(x)
+            occur_flag = false
+            for (another_atom_idx, another_atom) in enumerate(y)
+                if isapprox(one_atom, another_atom, atol=atol)
+                    occur_flag = true
+                    # Operation will also change the index
+                    # if atom i was moved to a position same as
+                    # raw atom j, which is to say that `y[i] = x[j]`
+                    corresponding_dict[another_atom_idx] = one_atom_idx
+                    break
+                end
+            end
+
+            if !occur_flag
+                approx_flag = false
+                break
+            end
+        end
+
+        return approx_flag, corresponding_dict
     end
 
+    function check_z_rot_mat(x::AbstractMatrix{T}; atol::T=1e-2) where T
+        @assert size(x) == (3, 3)
 
-    function equal_pair(py_struc, supercell_size, spg_num, mag_num_vec, target_idx_vec)
+        temp::Vector{T} = [0 ,0, 1]
+        r_mat = x[1:2, 1:2]
+        if !isapprox(x[:, 3], temp, atol=atol) || !isapprox(x[3, :], temp, atol=atol)
+            return false
+        elseif !isapprox(r_mat * transpose(r_mat), I, atol=atol) || !isapprox(det(r_mat), 1, atol=atol)
+            return false
+        elseif !isapprox(r_mat, I, atol=atol)
+            return false
+        end
+
+        return true
+    end
+
+    check_z_rot(op::SymOp; atol=1e-2) = check_z_rot_mat(op.rot_mat, atol=atol)
+
+    function consider_pair_vec_in_radius(struc::Struc, center_idx_vec, cutoff_radius)
+        frac_pos_mat = struc.pos_mat
+        cell_mat = struc.lattice_mat
+        cart_pos_mat = cell_mat * frac_pos_mat
+        neighbor_list = neighborlist(
+            eachcol(cart_pos_mat),
+            eachcol(cart_pos_mat),
+            cutoff_radius,
+            unitcell=cell_mat,
+            parallel=true
+        )
+
+        consider_pair_vec_vec = Vector{Int}[]
+        for pair in neighbor_list
+            pair_vec = collect(pair[1:2])
+            # given center idx is included
+            if pair_vec[1] in center_idx_vec
+                push!(
+                    consider_pair_vec_vec,
+                    pair_vec
+                )
+            end
+        end
+
+        return consider_pair_vec_vec
+    end
+
+    function linear_idx_to_vec(idx, supercell_size, num_pri_sites)
+        atom_count = prod(supercell_size) * num_pri_sites
+        temp = reshape(1:atom_count, reverse(supercell_size)..., num_pri_sites)
+
+        idx_vec = findfirst(==(idx), temp).I |> collect
+
+        reverse!(idx_vec)
+
+        return idx_vec
+    end
+
+    function get_corresponding_pair_vec(
+        corresponding_dict::Dict{Int, Int},
+        pair_vec::AbstractVector{Int}
+    )
+        return [
+            corresponding_dict[pair_vec[1]],
+            corresponding_dict[pair_vec[2]]
+        ]
+    end
+
+    function equal_pair(
+        py_struc,
+        mag_num_vec,
+        center_idx_vec,
+        cutoff_radius,
+        sym_op_vec;
+        atol=1e-2
+    )
         # remove all nonmagnetic atoms for only considering pairs between
         # magnetic atoms
         py_mag_struc = py_struc.copy()
         num_vec = pyconvert(Vector, py_struc.atomic_numbers)
-        nonmag_idx_vec = findall([!(num in mag_num_vec) for num in num_vec]) .- 1
-        py_mag_struc.remove_sites(PyList(nonmag_idx_vec))
+        nonmag_num_vec = setdiff(unique(num_vec), mag_num_vec)
+        py_mag_struc.remove_species(PyList(nonmag_num_vec))
 
-        cutoff = ceil(pyconvert(
-            Float64,
-            py_mag_struc.get_distance((target_idx_vec .- 1)...)
-        ))  # get the length of given atom pair
-        (
-            py_center_indices,
-            py_points_indices,
-            _,
-            _,
-            py_symmetry_indices,
-            _
-        ) = py_mag_struc.get_symmetric_neighbor_list(
-            cutoff,
-            spg_num,
-            numerical_tol=1e-2,
-            exclude_self=true,
-            unique=false
-        )
-        center_idx_vec = pyconvert(Vector, py_center_indices) .+ 1
-        points_idx_vec = pyconvert(Vector, py_points_indices) .+ 1
-        symmetry_idx_vec = pyconvert(Vector{Int64}, py_symmetry_indices)
+        mag_struc = py_struc_to_struc(py_mag_struc)
+        consider_pair_vec_vec = consider_pair_vec_in_radius(mag_struc, center_idx_vec, cutoff_radius)
 
-        target_center_idx_vec = findall(==(target_idx_vec[1]), center_idx_vec)
-        target_points_idx_vec = findall(==(target_idx_vec[2]), points_idx_vec)
-        target_pair_idx_vec = intersect(target_center_idx_vec, target_points_idx_vec)
-        if length(target_pair_idx_vec) > 1
-            error("Given supercell $(supercell_size) is not large enough for target atom pair $(target_idx_vec).")
-        else
-            target_pair_idx = target_pair_idx_vec[1]
+        # there exists multiple pairs between center atom and one point atom
+        if length(unique(consider_pair_vec_vec)) != length(consider_pair_vec_vec)
+            return nothing, nothing
         end
 
-        sym_idx = symmetry_idx_vec[target_pair_idx]
-        equal_pair_idx_vec = intersect(
-            target_center_idx_vec,
-            findall(==(sym_idx), symmetry_idx_vec)
-        )
-        equal_center_idx_vec = center_idx_vec[equal_pair_idx_vec]
-        equal_points_idx_vec = points_idx_vec[equal_pair_idx_vec]
+        pair_ds = DisjointSets(consider_pair_vec_vec)
+        pair_relation_dict = Dict{AbstractVector{Int}, SymOp}()
+        for sym_op in sym_op_vec
+            mag_struc_after_op = sym_op * mag_struc
 
-        @info "Equal pairs are shown as follows:"
-        for (center_idx, point_idx) in zip(equal_center_idx_vec, equal_points_idx_vec)
-            @info "$(center_idx) <=> $(point_idx)"
+            # without considering spin, those two structures should be approximate
+            _, corresponding_dict = struc_compare(
+                mag_struc,
+                mag_struc_after_op,
+                atol=atol
+            )
+
+            # find the pair after operation
+            for pair_vec in consider_pair_vec_vec
+                pair_vec_after_op = get_corresponding_pair_vec(
+                    corresponding_dict,
+                    pair_vec
+                )
+                if pair_vec_after_op in consider_pair_vec_vec
+                    pair_relation_vec = vcat(
+                        pair_vec,
+                        pair_vec_after_op
+                    )
+                    if haskey(pair_relation_dict, pair_relation_vec)
+                        continue
+                    end
+
+                    union!(
+                        pair_ds,
+                        pair_vec,
+                        pair_vec_after_op
+                    )
+                    pair_relation_dict[pair_relation_vec] = sym_op
+                end
+            end
         end
 
-        # TODO: Is there any proper way to restore those relations?
-        return nothing
+        return pair_ds, pair_relation_dict
+    end
+
+    function get_fixed_pair_vec(struc::Struc, mag_num_vec, supercell_size, pair_vec)
+        mag_struc = magonly(struc, mag_num_vec)
+        mag_atom_count = length(mag_struc.num_vec)
+        possibile_dis_vec = [
+            (
+                norm(
+                    mag_struc.lattice_mat * (
+                        mag_struc.pos_mat[:, pair_vec[1]] - (
+                            mag_struc.pos_mat[:, pair_vec[2]] + [diff_x, diff_y, 0]
+                        )
+                    )
+                ),
+                diff_x, diff_y
+            )
+            for diff_x = -1:1 for diff_y in -1:1
+        ]
+        _, min_dis_idx = findmin(first, possibile_dis_vec)
+        center_idx = linear_idx_to_vec(pair_vec[1], supercell_size, mag_atom_count)
+        point_idx = linear_idx_to_vec(pair_vec[2], supercell_size, mag_atom_count)
+
+        cell_idx_diff = @. (
+            point_idx[2:end] -
+            center_idx[2:end] +
+            [possibile_dis_vec[min_dis_idx][2:3]..., 0] * supercell_size
+        )
+        fixed_pair_vec = vcat(center_idx[1], cell_idx_diff[1:2], point_idx[1])
+
+        return fixed_pair_vec
     end
 
 
@@ -177,17 +351,18 @@ module Utils
 
 
     function to_vasp_inputs(
-        map::Map;
+        map_vec::Vector{Map};
         incar_path="./INCAR",
         poscar_path="./POSCAR",
         potcar_path="./POTCAR",
-        kpoints_path="./KPOINTS"
+        kpoints_path="./KPOINTS",
+        kwargs...
     )
         @assert isfile(incar_path) "Invalid `INCAR` path!"
         @assert isfile(potcar_path) "Invalid `POTCAR` path!"
         @assert isfile(kpoints_path) "Invalid `KPOINTS` path!"
 
-        par_dir_name = "./J_MAT/"
+        par_dir_name = "./cal/"
         if isdir(par_dir_name)
             @warn "Old input dir detected! Do you want to delete them? (Y[es]/N[o])"
             choice = readline(stdin)
@@ -202,48 +377,52 @@ module Utils
         py_incar = py_Incar.from_file(incar_path)
         rwigs_vec = set_rwigs(poscar_path)
 
-        mkdir(par_dir_name)
+        mkpath(par_dir_name)
         conf_dir_vec = String[]
-        for (struc_idx, struc) in enumerate(map.struc_vec)
-            conf_dir = par_dir_name * "conf_$(struc_idx)/"
-            mkdir(conf_dir)
+        for (group_idx, map) in enumerate(map_vec)
+            group_dir_name = par_dir_name * "group_$(group_idx)/"
+            for (struc_idx, struc) in enumerate(map.struc_vec)
+                conf_dir = group_dir_name * "conf_$(struc_idx)/"
+                mkpath(conf_dir)
 
-            py_magmom_list = py_np.array(transpose(struc.spin_mat)).tolist()
-            py_incar.update(Dict(
-                "MAGMOM" => py_magmom_list,
-                "M_CONSTR" => pylist(struc.spin_mat),
-                "I_CONSTRAINED_M" => 1,
-                "RWIGS" => pylist(rwigs_vec)
-            ))
+                py_magmom_list = py_np.array(transpose(struc.spin_mat)).tolist()
+                update_pack_dict = Dict(
+                    "MAGMOM" => py_magmom_list,
+                    "M_CONSTR" => pylist(struc.spin_mat),
+                    "I_CONSTRAINED_M" => 1,
+                    "RWIGS" => pylist(rwigs_vec)
+                )
+                # other parameters
+                for pair in kwargs
+                    push!(update_pack_dict, pair)
+                end
+                py_incar.update(update_pack_dict)
 
-            py_incar.write_file(conf_dir * "INCAR")
-            symlink(relpath(poscar_path, conf_dir), conf_dir * "POSCAR")
-            symlink(relpath(potcar_path, conf_dir), conf_dir * "POTCAR")
-            symlink(relpath(kpoints_path, conf_dir), conf_dir * "KPOINTS")
+                py_incar.write_file(conf_dir * "INCAR")
+                # using relative path for flexibility
+                symlink(relpath(poscar_path, conf_dir), conf_dir * "POSCAR")
+                symlink(relpath(potcar_path, conf_dir), conf_dir * "POTCAR")
+                symlink(relpath(kpoints_path, conf_dir), conf_dir * "KPOINTS")
 
-            push!(conf_dir_vec, conf_dir)
+                push!(conf_dir_vec, conf_dir)
+            end
         end
 
-        @info "Storing path to different configuration into `J_CONF_DIR`. One may use SLURM's job array to calculate."
-        writedlm("J_CONF_DIR", conf_dir_vec)
+        @info "Storing path to different configuration into `cal_dir_list`. One may use SLURM's job array to calculate."
+        writedlm("cal_dir_list", conf_dir_vec)
     end
 
 
     get_py_struc(filepath::String) = py_Struc.from_file(filepath)
 
 
-    function get_sym_op_vec(py_struc; symprec=1e-2, angle_tolerance=5.0)
-        py_sga = py_Sga(
-            py_struc,
-            symprec=symprec,
-            angle_tolerance=angle_tolerance
-        )
-        
+    function get_sym_op_vec(
+        py_sga
+    )
         py_sym_dict = py_sga.get_symmetry_dataset()
 
-        spg_num = pyconvert(Int64, py_sym_dict["number"])
         lattice_mat = permutedims(
-            pyconvert(Array{Float64}, py_struc.lattice.matrix),
+            pyconvert(Array{Float64}, py_sga._structure.lattice.matrix),
             (2, 1)
         )
         inv_lattive_mat = inv(lattice_mat)
@@ -275,7 +454,7 @@ module Utils
             end
         end
 
-        return spg_num, op_vec
+        return op_vec
     end
 
 
@@ -293,42 +472,16 @@ module Utils
         return energy, mag_mat
     end
 
-    function get_j_mat(
-        map::Map,
-        conf_list_path::String,
-        target_idx_vec::Vector{Int64}
-    )
-        fallback_vec = map.fallback_vec
-        conf_dir_vec = readdlm(conf_list_path)
-        @assert length(fallback_vec) == length(conf_dir_vec)
-
-        energy_vec = Dict{Int8, Float64}()
-        for (conf_idx, conf_dir) in enumerate(conf_dir_vec)
-            target_conf_mag_mat = map.struc_vec[conf_idx].spin_mat[:, target_idx_vec]
-            py_outcar = py_Outcar(conf_dir * "OUTCAR")
-            energy, mag_mat = get_energy_and_magmom(py_outcar)
-
-            target_mag_mat = mag_mat[:, target_idx_vec]
-            target_mag_mat = round.(target_mag_mat, RoundToZero; digits=1)
-            for col in eachcol(target_mag_mat)
-                normalize!(col)
-            end
-            if !isapprox(target_mag_mat, target_conf_mag_mat)
-                @error "MAGMOM of $(conf_dir) changed after SCF!"
-            end
-
-            energy_vec[fallback_vec[conf_idx]] = energy
-        end
-
-        j_mat = zeros(3, 3)
+    function get_coeff_mat(map::Map, energy_vec)
+        coeff_mat = zeros(3, 3)
         for i = 1:3, j = 1:3
             map_vec = map.map_mat[i, j]
             
             if map_vec[1] == 0
-                j_mat[i, j] = 0
+                coeff_mat[i, j] = 0
             else
                 idx_1, idx_2, idx_3, idx_4 = map_vec
-                j_mat[i, j] = (
+                coeff_mat[i, j] = (
                     energy_vec[idx_1] -
                     energy_vec[idx_2] -
                     energy_vec[idx_3] +
@@ -337,6 +490,109 @@ module Utils
             end
         end
 
-        return j_mat
+        if map.type == 2
+            coeff_mat .*= A_COEFF_MAT
+        end
+
+        return coeff_mat
+    end
+
+    function get_one_interact_coeff_mat(map::Map, cal_dir::String)
+        fallback_vec = map.fallback_vec
+        conf_dir_vec = readdir(cal_dir, join=true)
+        @assert length(fallback_vec) == length(conf_dir_vec)
+
+        energy_vec = Dict{Int8, Float64}()
+        for (conf_idx, conf_dir) in enumerate(conf_dir_vec)
+            # target_conf_mag_mat = map.struc_vec[conf_idx].spin_mat
+            py_outcar = py_Outcar(conf_dir * "/OUTCAR")
+            energy, mag_mat = get_energy_and_magmom(py_outcar)
+
+            target_mag_mat = mag_mat
+            target_mag_mat = round.(target_mag_mat, RoundToZero; digits=1)
+            for col in eachcol(target_mag_mat)
+                normalize!(col)
+            end
+            # if !isapprox(target_mag_mat, target_conf_mag_mat)
+                # @error "MAGMOM of $(conf_dir) changed after SCF!"
+            # end
+
+            energy_vec[fallback_vec[conf_idx]] = energy
+        end
+
+        coeff_mat = get_coeff_mat(map, energy_vec)
+
+        return coeff_mat
+    end
+
+    function get_all_interact_coeff_under_sym(coeff_mat, group_idx, relation_vec::Vector{CoeffMatRef})
+        pair_vec_vec = []
+        coeff_mat_vec = []
+        for coeff_ref in relation_vec
+            if coeff_ref.group_idx != group_idx
+                continue
+            end
+
+            push!(
+                pair_vec_vec,
+                coeff_ref.pair_vec
+            )
+
+            push!(
+                coeff_mat_vec,
+                coeff_ref.op * coeff_mat
+            )
+        end
+
+        pair_mat = stack(pair_vec_vec)
+        coeff_array = stack(coeff_mat_vec)
+
+        return pair_mat, coeff_array
+    end
+
+
+    function get_pair_and_coeff(
+        map_vec::Vector{Map},
+        relation_vec::Vector{CoeffMatRef},
+        cal_dir::String
+    )
+        group_pair_mat_vec = []
+        group_coeff_array_vec = []
+        for (group_idx, map) in enumerate(map_vec)
+            group_dir = cal_dir * "group_$(group_idx)/"
+
+            coeff_mat = get_one_interact_coeff_mat(map, group_dir)
+            group_pair_mat, group_coeff_array = get_all_interact_coeff_under_sym(
+                coeff_mat,
+                group_idx,
+                relation_vec
+            )
+
+            push!(
+                group_pair_mat_vec,
+                group_pair_mat
+            )
+            push!(
+                group_coeff_array_vec,
+                group_coeff_array
+            )
+        end
+
+        pair_mat = cat(group_pair_mat_vec..., dims=2)
+        coeff_array = cat(group_coeff_array_vec..., dims=3)
+
+        return pair_mat, coeff_array
+    end
+
+    function magonly(struc::Struc, mag_num_vec)
+        mag_flag_vec = [(num in mag_num_vec) for num in struc.num_vec]
+
+        return Struc(
+            struc.uni_num,
+            struc.lattice_mat,
+            struc.num_vec[mag_flag_vec],
+            struc.pos_mat[:, mag_flag_vec],
+            struc.spin_mat[:, mag_flag_vec]
+        )
     end
 end
