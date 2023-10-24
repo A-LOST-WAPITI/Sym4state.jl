@@ -46,15 +46,15 @@ function mcmc(
     else
         rand_states!(states_array)
     end
-    check_mat_vec = [
+    check_array_vec = [
         begin
             checkarray_backend = KAzeros(backend, Bool, atom_size_tuple...)
             checkarray = zeros(Bool, atom_size_tuple...)
-            checkarray[:, :] .= (color_check_mat .== color)
+            checkarray[atom_type, :, :] .= (color_check_mat .== color)
             copyto!(backend, checkarray_backend, checkarray)
             checkarray_backend
         end
-        for color in colors
+        for color in colors for atom_type = 1:n_type
     ]
     temp_kelvin_str = @sprintf("%.4f", ustrip(auconvert(u"K", temperature)))
     @info "Start equilibration progress under $(temp_kelvin_str) K."
@@ -66,11 +66,11 @@ function mcmc(
     for _ = 1:mcmethod.equilibration_step_num
         rand_states!(rand_states_array)
         synchronize(backend)
-        for check_mat in check_mat_vec
+        for check_array in check_array_vec
             try_flip!(
                 states_array,
                 rand_states_array,
-                point_idx_array,
+                pair_mat,
                 interact_coeff_array,
                 check_array,
                 magmom_vector,

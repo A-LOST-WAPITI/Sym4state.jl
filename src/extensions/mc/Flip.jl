@@ -37,7 +37,7 @@ module MCFlip
     @kernel function try_flip_kernel!(
         states_array,
         @Const(rand_states_array),
-        @Const(point_idx_array),
+        @Const(pair_mat),
         @Const(interact_coeff_array),
         @Const(check_array),
         @Const(magmom_vector),
@@ -45,9 +45,9 @@ module MCFlip
         @Const(temperature)
     )
         idx_site = @index(Global, Cartesian)
-        idx_x, idx_y, idx_t = @index(Global, NTuple)
-        n_x, n_y, _, _ = size(states_array)
-        n_p = size(interact_coeff_array, 2)
+        idx_t, idx_x, idx_y = @index(Global, NTuple)
+        _, _, n_x, n_y = size(states_array)
+        n_p = size(interact_coeff_array, 3)
 
         # only give a try on sites those could be checked parallelly
         if check_array[idx_site]
@@ -67,13 +67,16 @@ module MCFlip
             try_energy *= magmom_vector[idx_t]
             # energy from interacting
             for idx_p = 1:n_p
-                @inbounds point_idx = @view point_idx_array[idx_p, :]
-                target_idx_x = mod1(idx_x + point_idx[1], n_x)  # PBC
-                target_idx_y = mod1(idx_y + point_idx[2], n_y)  # PBC
-                target_idx_t = point_idx[4]
+                @inbounds pair_vec = @view pair_mat[:, idx_p]
+                if pair_vec[1] != idx_t
+                    continue
+                end
+                target_idx_x = mod1(idx_x + pair_vec[2], n_x)  # PBC
+                target_idx_y = mod1(idx_y + pair_vec[3], n_y)  # PBC
+                target_idx_t = pair_vec[4]
 
-                @inbounds interact_coeff_mat = @view interact_coeff_array[idx_t, idx_p, :, :]
-                @inbounds point_state = @view states_array[target_idx_x, target_idx_y, target_idx_t, :]
+                @inbounds interact_coeff_mat = @view interact_coeff_array[:, :, idx_p]
+                @inbounds point_state = @view states_array[:, target_idx_t, target_idx_x, target_idx_y]
 
                 for i = 1:3, j = 1:3
                     @inbounds raw_energy += raw_state[i] * interact_coeff_mat[i, j] * point_state[j]
@@ -93,7 +96,7 @@ module MCFlip
     function try_flip!(
         states_array,
         rand_states_array,
-        point_idx_array,
+        pair_mat,
         interact_coeff_array,
         check_array,
         magmom_vector,
@@ -107,7 +110,7 @@ module MCFlip
         kernel!(
             states_array,
             rand_states_array,
-            point_idx_array,
+            pair_mat,
             interact_coeff_array,
             check_array,
             magmom_vector,
