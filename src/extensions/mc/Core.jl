@@ -93,11 +93,11 @@ function mcmc(
     for idx_measure = 1:mcmethod.measuring_step_num
         rand_states!(rand_states_array)
         synchronize(backend)
-        for check_array in check_array_mat
+        for check_array in check_array_vec
             try_flip!(
                 states_array,
                 rand_states_array,
-                point_idx_array,
+                pair_mat,
                 interact_coeff_array,
                 check_array,
                 magmom_vector,
@@ -110,7 +110,7 @@ function mcmc(
         mag_mean_vec[idx_measure] = mag_mean(states_array)
         energy_mean_vec[idx_measure] = energy_mean(
             states_array,
-            point_idx_array,
+            pair_mat,
             interact_coeff_array,
             magmom_vector,
             magnetic_field

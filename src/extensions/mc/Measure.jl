@@ -9,7 +9,7 @@ module MCMeasure
 
 
     function mag_mean(states_array)
-        mag_mean_vec = mean(states_array, dims=(1, 2, 3))
+        mag_mean_vec = mean(states_array, dims=(2, 3, 4))
         mag_mean = norm(mag_mean_vec)
 
         return mag_mean
@@ -23,31 +23,39 @@ module MCMeasure
         @Const(magmom_vector),
         @Const(magnetic_field),
     )
-        idx_x, idx_y, idx_t = @index(Global, NTuple)
-        n_x, n_y, _, _ = size(states_array)
-        n_p = size(interact_coeff_array, 2)
+        idx_site = @index(Global, Cartesian)
+        idx_t, idx_x, idx_y = @index(Global, NTuple)
+        _, _, n_x, n_y = size(states_array)
+        n_p = size(interact_coeff_array, 3)
 
-        @inbounds state = @view states_array[idx_x, idx_y, idx_t, :]
+        @inbounds state = @view states_array[:, idx_site]
 
         # init energy
         energy = zero(eltype(states_array))
 
         # energy from magnetic field
         for idx_pos = 1:3
-            @inbounds energy += magmom_vector[idx_t] * magnetic_field[idx_pos] * state[idx_pos]
+            @inbounds energy += magnetic_field[idx_pos] * state[idx_pos]
         end
+        energy *= magmom_vector[idx_t]
         # energy from interacting
         for idx_p = 1:n_p
-            @inbounds point_diff = @view point_idx_array[idx_t, idx_p, :]
-            target_idx_x = mod1(idx_x + point_diff[1], n_x)
-            target_idx_y = mod1(idx_y + point_diff[2], n_y)
-            target_idx_t = point_diff[3]
+            @inbounds pair_vec = @view pair_mat[:, idx_p]
+            if pair_vec[1] != idx_t
+                continue
+            end
+            target_idx_x = mod1(idx_x + pair_vec[2], n_x)  # PBC
+            target_idx_y = mod1(idx_y + pair_vec[3], n_y)  # PBC
+            target_idx_t = pair_vec[4]
 
             @inbounds interact_coeff_mat = @view interact_coeff_array[idx_t, idx_p, :, :]
             @inbounds point_state = @view states_array[target_idx_x, target_idx_y, target_idx_t, :]
 
+            @inbounds interact_coeff_mat = @view interact_coeff_array[:, :, idx_p]
+            @inbounds point_state = @view states_array[:, target_idx_t, target_idx_x, target_idx_y]
+
             for i = 1:3, j = 1:3
-                @inbounds energy += state[i] * interact_coeff_mat[i, j] * point_state[j]
+                @inbounds energy += raw_state[i] * interact_coeff_mat[i, j] * point_state[j]
             end
         end
 
@@ -57,7 +65,7 @@ module MCMeasure
     function site_energy!(
         energy_array,
         states_array,
-        point_idx_array,
+        pair_mat,
         interact_coeff_array,
         magmom_vector,
         magnetic_field,
@@ -69,7 +77,7 @@ module MCMeasure
         kernel!(
             energy_array,
             states_array,
-            point_idx_array,
+            pair_mat,
             interact_coeff_array,
             magmom_vector,
             magnetic_field,
@@ -79,19 +87,19 @@ module MCMeasure
 
     function energy_mean(
         states_array::AbstractArray{T},
-        point_idx_array::AbstractArray{Int},
+        pair_mat::AbstractArray{Int},
         interact_coeff_array::AbstractArray{T},
         magmom_vector::AbstractVector{T},
         magnetic_field::AbstractVector{T}
     ) where T
-        site_size = size(states_array)[1:3]
+        site_size = size(states_array)[2:4]
         backend = get_backend(states_array)
         energy_array = KAzeros(backend, T, site_size...)
 
         site_energy!(
             energy_array,
             states_array,
-            point_idx_array,
+            pair_mat,
             interact_coeff_array,
             magmom_vector,
             magnetic_field
