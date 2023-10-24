@@ -18,7 +18,7 @@ module MCMeasure
     @kernel function site_energy_kernel!(
         energy_array,
         @Const(states_array),
-        @Const(point_idx_array),
+        @Const(pair_mat),
         @Const(interact_coeff_array),
         @Const(magmom_vector),
         @Const(magnetic_field),
@@ -48,14 +48,11 @@ module MCMeasure
             target_idx_y = mod1(idx_y + pair_vec[3], n_y)  # PBC
             target_idx_t = pair_vec[4]
 
-            @inbounds interact_coeff_mat = @view interact_coeff_array[idx_t, idx_p, :, :]
-            @inbounds point_state = @view states_array[target_idx_x, target_idx_y, target_idx_t, :]
-
             @inbounds interact_coeff_mat = @view interact_coeff_array[:, :, idx_p]
             @inbounds point_state = @view states_array[:, target_idx_t, target_idx_x, target_idx_y]
 
             for i = 1:3, j = 1:3
-                @inbounds energy += raw_state[i] * interact_coeff_mat[i, j] * point_state[j]
+                @inbounds energy += state[i] * interact_coeff_mat[i, j] * point_state[j]
             end
         end
 
