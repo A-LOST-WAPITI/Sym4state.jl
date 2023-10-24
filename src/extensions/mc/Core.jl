@@ -26,15 +26,15 @@ function mcmc(
 
     x_lattice, y_lattice = lattice.size
     n_type = length(lattice.magmom_vector)
-    n_pair = size(lattice.interact_coeff_array, 2)
-    atom_size_tuple = (x_lattice, y_lattice, n_type)
+    n_pair = size(lattice.interact_coeff_array, 3)
+    atom_size_tuple = (n_type, x_lattice, y_lattice)
 
-    states_array = KAzeros(backend, T, atom_size_tuple..., 3)
-    rand_states_array = KAzeros(backend, T, atom_size_tuple..., 3)
-    interact_coeff_array = KAzeros(backend, T, n_type, n_pair, 3, 3)
+    states_array = KAzeros(backend, T, 3, atom_size_tuple...)
+    rand_states_array = KAzeros(backend, T, 3, atom_size_tuple...)
+    interact_coeff_array = KAzeros(backend, T, 3, 3, n_pair)
     copyto!(backend, interact_coeff_array, lattice.interact_coeff_array)
-    point_idx_array = KAzeros(backend, Int, n_type, n_pair, 3)
-    copyto!(backend, point_idx_array, lattice.point_idx_array)
+    pair_mat = KAzeros(backend, Int, 4, n_pair)
+    copyto!(backend, pair_mat, lattice.pair_mat)
     magmom_vector = KAzeros(backend, T, n_type)
     copyto!(backend, magmom_vector, lattice.magmom_vector)
     magnetic_field = KAzeros(backend, T, 3)
@@ -46,15 +46,15 @@ function mcmc(
     else
         rand_states!(states_array)
     end
-    check_array_mat = [
+    check_mat_vec = [
         begin
             checkarray_backend = KAzeros(backend, Bool, atom_size_tuple...)
             checkarray = zeros(Bool, atom_size_tuple...)
-            checkarray[:, :, type_idx] .= (color_check_mat .== color)
+            checkarray[:, :] .= (color_check_mat .== color)
             copyto!(backend, checkarray_backend, checkarray)
             checkarray_backend
         end
-        for color in colors, type_idx = 1:n_type
+        for color in colors
     ]
     temp_kelvin_str = @sprintf("%.4f", ustrip(auconvert(u"K", temperature)))
     @info "Start equilibration progress under $(temp_kelvin_str) K."
@@ -66,7 +66,7 @@ function mcmc(
     for _ = 1:mcmethod.equilibration_step_num
         rand_states!(rand_states_array)
         synchronize(backend)
-        for check_array in check_array_mat
+        for check_mat in check_mat_vec
             try_flip!(
                 states_array,
                 rand_states_array,

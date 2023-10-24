@@ -17,17 +17,17 @@ module MCFlip
         qz = sqrt(1 - z2) * sin(phi)
         qw = sqrt(1 - z2) * cos(phi)
 
-        @inbounds states_array[idx, 1] = 2qy * qw - 2qx * qz
-        @inbounds states_array[idx, 2] = 2qy * qz + 2qx * qw
-        @inbounds states_array[idx, 3] = 1 - 2qx^2 - 2qy^2
+        @inbounds states_array[1, idx] = 2qy * qw - 2qx * qz
+        @inbounds states_array[2, idx] = 2qy * qz + 2qx * qw
+        @inbounds states_array[3, idx] = 1 - 2qx^2 - 2qy^2
     end
 
     function rand_states!(states_array)
         array_shape = size(states_array)
         @assert length(array_shape) == 4
-        @assert array_shape[4] == 3
+        @assert array_shape[1] == 3
 
-        site_size = array_shape[1:3]
+        site_size = array_shape[2:end]
         backend = get_backend(states_array)
 
         kernel! = rand_states_kernel!(backend)
@@ -51,8 +51,8 @@ module MCFlip
 
         # only give a try on sites those could be checked parallelly
         if check_array[idx_site]
-            @inbounds raw_state = @view states_array[idx_site, :]
-            @inbounds try_state = @view rand_states_array[idx_site, :]
+            @inbounds raw_state = @view states_array[:, idx_site]
+            @inbounds try_state = @view rand_states_array[:, idx_site]
 
             # init two energies
             raw_energy = zero(eltype(states_array))
@@ -60,15 +60,17 @@ module MCFlip
 
             # energy from magnetic field
             for idx_pos = 1:3
-                @inbounds raw_energy -= magmom_vector[idx_t] * magnetic_field[idx_pos] * raw_state[idx_pos]
-                @inbounds try_energy -= magmom_vector[idx_t] * magnetic_field[idx_pos] * try_state[idx_pos]
+                @inbounds raw_energy -= magnetic_field[idx_pos] * raw_state[idx_pos]
+                @inbounds try_energy -= magnetic_field[idx_pos] * try_state[idx_pos]
             end
+            raw_energy *= magmom_vector[idx_t]
+            try_energy *= magmom_vector[idx_t]
             # energy from interacting
             for idx_p = 1:n_p
-                @inbounds point_idx = @view point_idx_array[idx_t, idx_p, :]
+                @inbounds point_idx = @view point_idx_array[idx_p, :]
                 target_idx_x = mod1(idx_x + point_idx[1], n_x)  # PBC
                 target_idx_y = mod1(idx_y + point_idx[2], n_y)  # PBC
-                target_idx_t = point_idx[3]
+                target_idx_t = point_idx[4]
 
                 @inbounds interact_coeff_mat = @view interact_coeff_array[idx_t, idx_p, :, :]
                 @inbounds point_state = @view states_array[target_idx_x, target_idx_y, target_idx_t, :]
@@ -98,7 +100,7 @@ module MCFlip
         magnetic_field,
         temperature
     )
-        site_size = size(states_array)[1:3]
+        site_size = size(states_array)[2:end]
         backend = get_backend(states_array)
 
         kernel! = try_flip_kernel!(backend)

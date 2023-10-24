@@ -387,6 +387,7 @@ module Utils
 
                 py_magmom_list = py_np.array(transpose(struc.spin_mat)).tolist()
                 update_pack_dict = Dict(
+                    "LNONCOLLINEAR" => true,
                     "MAGMOM" => py_magmom_list,
                     "M_CONSTR" => pylist(struc.spin_mat),
                     "I_CONSTRAINED_M" => 1,
