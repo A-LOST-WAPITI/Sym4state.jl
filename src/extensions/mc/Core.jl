@@ -167,7 +167,7 @@ function mcmc_with_environment_change(
         push!(specific_heat_vec, specific_heat)
     end
 
-    states_change_array = stack(states_array_vec, dims=1)
+    states_change_array = stack(states_array_vec)
     return states_change_array, mag_vec, susceptibility_vec, specific_heat_vec
 end
 
