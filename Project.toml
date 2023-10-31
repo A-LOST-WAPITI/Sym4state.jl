@@ -4,7 +4,6 @@ authors = ["Guolin Wan <glwan@iphy.ac.cn> and contributors"]
 version = "1.0.0-DEV"
 
 [deps]
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 CellListMap = "69e1c6dd-3888-40e6-b3c8-31ac5f578864"
 CondaPkg = "992eb4ea-22a4-4c89-a5bb-47a3300528ab"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
@@ -28,11 +27,6 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 UnitfulAtomic = "a7773ee8-282e-5fa2-be4e-bd808c38a91a"
-
-[extensions]
-MCConfig = ["TOML", "Unitful", "UnitfulAtomic", "PhysicalConstants"]
-MCFlip = ["CUDA", "Unitful", "UnitfulAtomic", "PhysicalConstants"]
-MCMeasure = ["Statistics", "StatsBase"]
 
 [compat]
 julia = "1.9"

@@ -37,10 +37,13 @@ module ModCore
                             source_uni_num,
                             target_uni_num
                         )
+                        occur_flag = true
 
                         break
                     end
                 end
+
+                occur_flag && break
             end
 
             if !occur_flag

@@ -9,9 +9,9 @@ module MCUtils
 
 
     function domain_decompose(lattice::Lattice)
-        point_idx_array = lattice.point_idx_array
+        pair_mat = lattice.pair_mat
         hull_points = convex_hull(
-            eachslice(point_idx_array[:, :, 1:2], dims=(1, 2)) .|> Vector |> vec
+            eachcol(pair_mat[2:3, :]) .|> Vector |> vec
         )
 
         # fix the size of the lattice for being decomposible under PBC

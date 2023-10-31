@@ -26,15 +26,15 @@ function mcmc(
 
     x_lattice, y_lattice = lattice.size
     n_type = length(lattice.magmom_vector)
-    n_pair = size(lattice.interact_coeff_array, 2)
-    atom_size_tuple = (x_lattice, y_lattice, n_type)
+    n_pair = size(lattice.interact_coeff_array, 3)
+    atom_size_tuple = (n_type, x_lattice, y_lattice)
 
-    states_array = KAzeros(backend, T, atom_size_tuple..., 3)
-    rand_states_array = KAzeros(backend, T, atom_size_tuple..., 3)
-    interact_coeff_array = KAzeros(backend, T, n_type, n_pair, 3, 3)
+    states_array = KAzeros(backend, T, 3, atom_size_tuple...)
+    rand_states_array = KAzeros(backend, T, 3, atom_size_tuple...)
+    interact_coeff_array = KAzeros(backend, T, 3, 3, n_pair)
     copyto!(backend, interact_coeff_array, lattice.interact_coeff_array)
-    point_idx_array = KAzeros(backend, Int, n_type, n_pair, 3)
-    copyto!(backend, point_idx_array, lattice.point_idx_array)
+    pair_mat = KAzeros(backend, Int, 4, n_pair)
+    copyto!(backend, pair_mat, lattice.pair_mat)
     magmom_vector = KAzeros(backend, T, n_type)
     copyto!(backend, magmom_vector, lattice.magmom_vector)
     magnetic_field = KAzeros(backend, T, 3)
@@ -46,15 +46,15 @@ function mcmc(
     else
         rand_states!(states_array)
     end
-    check_array_mat = [
+    check_array_vec = [
         begin
             checkarray_backend = KAzeros(backend, Bool, atom_size_tuple...)
             checkarray = zeros(Bool, atom_size_tuple...)
-            checkarray[:, :, type_idx] .= (color_check_mat .== color)
+            checkarray[atom_type, :, :] .= (color_check_mat .== color)
             copyto!(backend, checkarray_backend, checkarray)
             checkarray_backend
         end
-        for color in colors, type_idx = 1:n_type
+        for color in colors for atom_type = 1:n_type
     ]
     temp_kelvin_str = @sprintf("%.4f", ustrip(auconvert(u"K", temperature)))
     @info "Start equilibration progress under $(temp_kelvin_str) K."
@@ -66,11 +66,11 @@ function mcmc(
     for _ = 1:mcmethod.equilibration_step_num
         rand_states!(rand_states_array)
         synchronize(backend)
-        for check_array in check_array_mat
+        for check_array in check_array_vec
             try_flip!(
                 states_array,
                 rand_states_array,
-                point_idx_array,
+                pair_mat,
                 interact_coeff_array,
                 check_array,
                 magmom_vector,
@@ -93,11 +93,11 @@ function mcmc(
     for idx_measure = 1:mcmethod.measuring_step_num
         rand_states!(rand_states_array)
         synchronize(backend)
-        for check_array in check_array_mat
+        for check_array in check_array_vec
             try_flip!(
                 states_array,
                 rand_states_array,
-                point_idx_array,
+                pair_mat,
                 interact_coeff_array,
                 check_array,
                 magmom_vector,
@@ -110,7 +110,7 @@ function mcmc(
         mag_mean_vec[idx_measure] = mag_mean(states_array)
         energy_mean_vec[idx_measure] = energy_mean(
             states_array,
-            point_idx_array,
+            pair_mat,
             interact_coeff_array,
             magmom_vector,
             magnetic_field
@@ -167,7 +167,7 @@ function mcmc_with_environment_change(
         push!(specific_heat_vec, specific_heat)
     end
 
-    states_change_array = stack(states_array_vec, dims=1)
+    states_change_array = stack(states_array_vec)
     return states_change_array, mag_vec, susceptibility_vec, specific_heat_vec
 end
 

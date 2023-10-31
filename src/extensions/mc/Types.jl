@@ -6,8 +6,8 @@ module MCTypes
         cell_mat::AbstractMatrix{T}
         offset_mat::AbstractMatrix{T}
         magmom_vector::AbstractVector{T}
-        point_idx_array::AbstractArray{Int, 3}
-        interact_coeff_array::AbstractArray{T, 4}
+        pair_mat::AbstractMatrix{Int}
+        interact_coeff_array::AbstractArray{T, 3}
     end
 
     struct Environment{T<:AbstractFloat}
