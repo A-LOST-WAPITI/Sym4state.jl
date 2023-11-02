@@ -67,11 +67,11 @@ module Utils
                 mag_config[:, idx_2] .+= mag_beta
                 mag_config[:, Not(target_idx_vec)] .+= mag_left
 
-                mag_config .*= s_value
-
                 for mag in eachcol(mag_config)
                     normalize!(mag)
                 end
+
+                mag_config .*= s_value
                 push!(mag_config_vec, mag_config)
             end
         end
