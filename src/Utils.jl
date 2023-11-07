@@ -16,6 +16,7 @@ module Utils
     export magonly
     export check_z_rot
     export get_fixed_pair_vec
+    export check_unit_cell
 
 
     include("data/CovalentRadius.jl")
@@ -227,26 +228,23 @@ module Utils
     end
 
     function equal_pair(
-        py_struc,
-        mag_num_vec,
+        mag_struc::Struc,
         center_idx_vec,
         cutoff_radius,
         sym_op_vec;
         atol=1e-2
     )
-        # remove all nonmagnetic atoms for only considering pairs between
-        # magnetic atoms
-        py_mag_struc = py_struc.copy()
-        num_vec = pyconvert(Vector, py_struc.atomic_numbers)
-        nonmag_num_vec = setdiff(unique(num_vec), mag_num_vec)
-        py_mag_struc.remove_species(PyList(nonmag_num_vec))
+        # check whether unitcell is large enough
+        unitcell_check_flag = check_unit_cell(mag_struc.lattice_mat, cutoff_radius)
+        if !unitcell_check_flag
+            return false, nothing, nothing
+        end
 
-        mag_struc = py_struc_to_struc(py_mag_struc)
         consider_pair_vec_vec = consider_pair_vec_in_radius(mag_struc, center_idx_vec, cutoff_radius)
 
         # there exists multiple pairs between center atom and one point atom
         if length(unique(consider_pair_vec_vec)) != length(consider_pair_vec_vec)
-            return nothing, nothing
+            return false, nothing, nothing
         end
 
         pair_ds = DisjointSets(consider_pair_vec_vec)
@@ -286,7 +284,7 @@ module Utils
             end
         end
 
-        return pair_ds, pair_relation_dict
+        return true, pair_ds, pair_relation_dict
     end
 
     function get_fixed_pair_vec(struc::Struc, mag_num_vec, supercell_size, pair_vec)
@@ -595,5 +593,33 @@ module Utils
             struc.pos_mat[:, mag_flag_vec],
             struc.spin_mat[:, mag_flag_vec]
         )
+    end
+
+    function check_unit_cell(unit_cell_matrix, cutoff)
+        # from https://github.com/m3g/CellListMap.jl/raw/3010734b6a4dd4a9366a4a1184cfffb72798b977/src/Box.jl
+        # remove size check and output print when check fails
+
+        a = @view(unit_cell_matrix[:, 1])
+        b = @view(unit_cell_matrix[:, 2])
+        c = @view(unit_cell_matrix[:, 3])
+        check = true
+
+        bc = cross(b, c)
+        bc = bc / norm(bc)
+        aproj = dot(a, bc)
+    
+        ab = cross(a, b)
+        ab = ab / norm(ab)
+        cproj = dot(c, ab)
+    
+        ca = cross(c, a)
+        ca = ca / norm(ca)
+        bproj = dot(b, ca)
+    
+        if (aproj <= 2 * cutoff) || (bproj <= 2 * cutoff) || (cproj <= 2 * cutoff)
+            check = false
+        end
+    
+        return check
     end
 end

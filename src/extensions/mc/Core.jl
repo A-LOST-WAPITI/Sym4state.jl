@@ -7,6 +7,8 @@ using Unitful: @u_str, ustrip
 using UnitfulAtomic: auconvert
 using Statistics: mean
 using Printf: @sprintf
+using LoggingExtras
+using Dates
 
 using ..MCTypes
 using ..MCUtils
@@ -138,33 +140,44 @@ function mcmc_with_environment_change(
     susceptibility_vec = Vector{T}()
     specific_heat_vec = Vector{T}()
 
-    states_array, mag, susceptibility, specific_heat = mcmc(
-        lattice,
-        environment_vec[1],
-        mcmethod;
-        backend=backend,
-        progress_enabled=progress_enabled
-    )
-    push!(states_array_vec, states_array)
-    push!(mag_vec, mag)
-    push!(susceptibility_vec, susceptibility)
-    push!(specific_heat_vec, specific_heat)
 
-    for environment in environment_vec[2:end]
+    timestamp_logger(logger) = TransformerLogger(logger) do log
+        merge(log, (; message = "$(Dates.format(now(), "yyyy-mm-dd HH:MM:SS")) $(log.message)"))
+    end
+    real_logger = TeeLogger(
+        MinLevelLogger(timestamp_logger(FileLogger("progress.log")), Logging.Info),
+        global_logger()
+    )
+
+    with_logger(real_logger) do
         states_array, mag, susceptibility, specific_heat = mcmc(
             lattice,
-            environment,
+            environment_vec[1],
             mcmethod;
             backend=backend,
-            progress_enabled=progress_enabled,
-            continue_flag=true,
-            prev_states_array=states_array
+            progress_enabled=progress_enabled
         )
-
         push!(states_array_vec, states_array)
         push!(mag_vec, mag)
         push!(susceptibility_vec, susceptibility)
         push!(specific_heat_vec, specific_heat)
+
+        for environment in environment_vec[2:end]
+            states_array, mag, susceptibility, specific_heat = mcmc(
+                lattice,
+                environment,
+                mcmethod;
+                backend=backend,
+                progress_enabled=progress_enabled,
+                continue_flag=true,
+                prev_states_array=states_array
+            )
+
+            push!(states_array_vec, states_array)
+            push!(mag_vec, mag)
+            push!(susceptibility_vec, susceptibility)
+            push!(specific_heat_vec, specific_heat)
+        end
     end
 
     states_change_array = stack(states_array_vec)

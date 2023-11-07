@@ -56,7 +56,7 @@ module MCMeasure
             end
         end
 
-        energy_array[idx_x, idx_y, idx_t] = energy
+        energy_array[idx_t, idx_x, idx_y] = energy
     end
 
     function site_energy!(

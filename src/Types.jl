@@ -38,13 +38,13 @@ module Types
     end
 
 
-    struct Atom
-        num::Int64
-        pos::SVector{3, Float64}
-        spin::SVector{3, Float64}
+    struct Atom{T<:AbstractFloat}
+        num::Int
+        pos::SVector{3, T}
+        spin::SVector{3, T}
     end
 
-    Base.isapprox(x::Atom, y::Atom; atol=1e-2) = begin
+    function Base.isapprox(x::Atom{T}, y::Atom{T}; atol=T(1e-2)) where T
         num_flag = (x.num == y.num)
         spin_flag = isapprox(
             x.spin,
@@ -76,29 +76,29 @@ module Types
     Base.show(io::IO, atom::Atom) = show(io, "text/plain", atom)
 
     struct Struc
-        uni_num::Int64
+        uni_num::Int
         lattice_mat::SMatrix
-        atom_count::Int64
+        atom_count::Int
         num_vec::SVector
         pos_mat::SMatrix
         spin_mat::SMatrix
     end
     function Struc(
-        uni_num::Int64,
-        lattice_mat::AbstractMatrix,
-        num_vec::AbstractVector,
-        pos_mat::AbstractMatrix,
-        spin_mat::AbstractMatrix
-    )
+        uni_num::Int,
+        lattice_mat::AbstractMatrix{T},
+        num_vec::AbstractVector{Int},
+        pos_mat::AbstractMatrix{T},
+        spin_mat::AbstractMatrix{T}
+    ) where T
         atom_count = length(num_vec)
         @assert size(lattice_mat) == (3, 3)
         @assert size(pos_mat) == (3, atom_count)
         @assert size(spin_mat) == (3, atom_count)
 
-        num_vec = SVector{atom_count, Int64}(num_vec)
-        lattice_mat = SMatrix{3, 3, Float64}(lattice_mat)
-        pos_mat = SMatrix{3, atom_count, Float64}(pos_mat)
-        spin_mat = SMatrix{3, atom_count, Float64}(spin_mat)
+        num_vec = SVector{atom_count, Int}(num_vec)
+        lattice_mat = SMatrix{3, 3, T}(lattice_mat)
+        pos_mat = SMatrix{3, atom_count, T}(pos_mat)
+        spin_mat = SMatrix{3, atom_count, T}(spin_mat)
 
         return Struc(
             uni_num,
@@ -110,7 +110,7 @@ module Types
         )
     end
 
-    Base.iterate(struc::Struc, state=1) = begin
+    function Base.iterate(struc::Struc, state=1)
         if state > struc.atom_count
             return nothing
         else
@@ -129,11 +129,7 @@ module Types
         struc.spin_mat[:, idx]
     )
     Base.getindex(struc::Struc, idics::Union{AbstractRange, AbstractVector}) = [
-        @views Atom(
-            struc.num_vec[idx],
-            struc.pos_mat[:, idx],
-            struc.spin_mat[:, idx]
-        )
+        struc[idx]
         for idx in idics
     ]
 
@@ -159,22 +155,28 @@ module Types
     Base.show(io::IO, struc::Struc) = show(io, "text/plain", struc)
 
 
-    struct SymOp
-        rot_mat::SMatrix{3, 3, Float64}
-        spin_rot_mat::SMatrix{3, 3, Float64}
-        trans_vec::SVector{3, Float64}
+    struct SymOp{T<:AbstractFloat}
+        rot_mat::SMatrix{3, 3, T}
+        spin_rot_mat::SMatrix{3, 3, T}
+        trans_vec::SVector{3, T}
         proper::Int8
         time_rev::Int8
     end
-    function SymOp(rot_mat, trans_vec, time_rev, lattice_mat::Matrix{Float64}, inv_lattice_mat::Matrix{Float64})
+    function SymOp(
+        rot_mat::AbstractMatrix{T},
+        trans_vec::AbstractVector{T},
+        time_rev::Int,
+        lattice_mat::AbstractMatrix{T},
+        inv_lattice_mat::AbstractMatrix{T}
+    ) where T
         @assert size(rot_mat) == (3, 3) "The rotation matrix should have a shape of 3x3!"
         @assert length(trans_vec) == 3
 
-        rot_mat = SMatrix{3, 3, Float64}(rot_mat)
-        trans_vec = SVector{3, Float64}(trans_vec)
+        rot_mat = SMatrix{3, 3, T}(rot_mat)
+        trans_vec = SVector{3, T}(trans_vec)
         proper::Int8 = sign(det(rot_mat))
         time_rev::Int8 = time_rev
-        spin_rot_mat = SMatrix{3, 3, Float64}(
+        spin_rot_mat = SMatrix{3, 3, T}(
             time_rev * proper * lattice_mat * rot_mat * inv_lattice_mat
         )
 
