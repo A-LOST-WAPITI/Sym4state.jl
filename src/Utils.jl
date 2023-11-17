@@ -458,18 +458,17 @@ module Utils
     end
 
 
-    function get_energy_and_magmom(py_outcar)
-        energy = pyconvert(Float64, py_outcar.final_energy)
+    function grep_energy(oszicar_path)
+        energy = 0.0
+        for line in Iterators.reverse(eachline(oszicar_path))
+            m = match(r"E0", line)
+            if !isnothing(m)
+                energy = parse(Float64, split(line)[5])
+                break
+            end
+        end
 
-        py_mag_mat = py_np.vstack(
-            [item["tot"].moment for item in py_outcar.magnetization]
-        )
-        mag_mat = permutedims(
-            pyconvert(Matrix{Float64}, py_mag_mat),
-            (2, 1)
-        )
-
-        return energy, mag_mat
+        return energy
     end
 
     function get_coeff_mat(map::Map, energy_vec)
@@ -499,28 +498,27 @@ module Utils
 
     function get_one_interact_coeff_mat(map::Map, cal_dir::String)
         fallback_vec = map.fallback_vec
-        conf_dir_vec = readdir(cal_dir, join=true)
-        @assert length(fallback_vec) == length(conf_dir_vec)
 
-        energy_vec = Dict{Int8, Float64}()
-        for (conf_idx, conf_dir) in enumerate(conf_dir_vec)
+        energy_dict = Dict{Int8, Float64}()
+        for conf_idx = eachindex(fallback_vec)
+            conf_dir = cal_dir * "/conf_$(conf_idx)"
             # target_conf_mag_mat = map.struc_vec[conf_idx].spin_mat
-            py_outcar = py_Outcar(conf_dir * "/OUTCAR")
-            energy, mag_mat = get_energy_and_magmom(py_outcar)
+            # py_outcar = py_Outcar(conf_dir * "/OUTCAR")
+            energy = grep_energy(conf_dir * "/OSZICAR")
 
-            target_mag_mat = mag_mat
-            target_mag_mat = round.(target_mag_mat, RoundToZero; digits=1)
-            for col in eachcol(target_mag_mat)
-                normalize!(col)
-            end
+            # target_mag_mat = mag_mat
+            # target_mag_mat = round.(target_mag_mat, RoundToZero; digits=1)
+            # for col in eachcol(target_mag_mat)
+            #     normalize!(col)
+            # end
             # if !isapprox(target_mag_mat, target_conf_mag_mat)
                 # @error "MAGMOM of $(conf_dir) changed after SCF!"
             # end
 
-            energy_vec[fallback_vec[conf_idx]] = energy
+            energy_dict[fallback_vec[conf_idx]] = energy
         end
 
-        coeff_mat = get_coeff_mat(map, energy_vec)
+        coeff_mat = get_coeff_mat(map, energy_dict)
 
         return coeff_mat
     end
