@@ -12,13 +12,13 @@ module MCExternal
 
     function array_to_vec_recursive(x)
         dims = ndims(x)
-        if dims != 2
+        if dims > 1
             return [
-                to_vec_recursive(one_slice)
+                array_to_vec_recursive(one_slice)
                 for one_slice in eachslice(x, dims=dims)
             ]
         else
-            return collect(eachrow(x)) # col-major to row-major
+            return x
         end
     end
 
@@ -39,16 +39,20 @@ module MCExternal
         config = TOML.parsefile(filepath)
 
         # get lattice parameters
-        size::Vector{Int} = config["lattice"]["size"]
+        supercell_size::Vector{Int} = config["lattice"]["size"]
         cell_mat::Array{T} = vec_to_array_recursion(config["lattice"]["cell_mat"])
         offset_mat::Array{T} = vec_to_array_recursion(config["lattice"]["offset_mat"])
         magmom_vector::Vector{T} = config["lattice"]["magmom_vector"]
         pair_mat::Array{Int} = vec_to_array_recursion(config["lattice"]["pair_mat"])
         interact_coeff_array::Array{T} = vec_to_array_recursion(config["lattice"]["interact_coeff_array"])
         interact_coeff_array = interact_coeff_array * u"meV" .|> auconvert .|> austrip
-        # TODO: Dimension check
+
+        # Dimension check
+        interact_num = size(pair_mat, 2)
+        @assert size(interact_coeff_array) == (3, 3, interact_num) "Mismatch between `pair_mat` and `interact_coeff_array`!"
+
         lattice = Lattice(
-            size,
+            supercell_size,
             cell_mat,
             offset_mat,
             magmom_vector,

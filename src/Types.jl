@@ -190,7 +190,7 @@ module Types
     end
 
     Base.:*(op::SymOp, struc::Struc) = begin
-        new_pos_mat = mod1.(op.rot_mat * struc.pos_mat .+ op.trans_vec, 1)
+        new_pos_mat = mod.(op.rot_mat * struc.pos_mat .+ op.trans_vec, 1)
         new_spin = op.spin_rot_mat * struc.spin_mat
 
         return Struc(

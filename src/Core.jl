@@ -108,8 +108,6 @@ module ModCore
         end
 
         @info "$(supercell_size) supercell is large enough."
-        py_refined_supercell_struc.to("POSCAR_refined")
-        @info "The refined structure has been dumped into \"POSCAR_refined\"."
         struc = py_struc_to_struc(py_refined_supercell_struc)
 
         return struc, supercell_size, sym_op_vec, pair_ds, pair_relation_dict
@@ -149,6 +147,11 @@ module ModCore
             angle_tolerance=angle_tolerance,
             max_supercell=max_supercell
         )
+
+        mv("POSCAR", "POSCAR_bak"; force=true)
+        py_struc.make_supercell(supercell_size)
+        py_struc.to("POSCAR")
+        @info "The supercell has been dumped into \"POSCAR\"."
 
         sym4state(
             raw_struc,

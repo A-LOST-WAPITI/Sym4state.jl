@@ -91,7 +91,8 @@ module Utils
 
         lattice_mat = pyconvert(Matrix{Float64}, py_lattice_mat)
         pos_mat = pyconvert(Matrix{Float64}, py_pos_mat)
-        pos_mat = mod1.(pos_mat, 1)
+        # fractional coordinates should already be in [0, 1)
+        # pos_mat = mod.(pos_mat, 1)
         num_vec = pyconvert(Vector{Int64}, py_num_vec)
         if isa(spin_mat, Nothing)
             spin_mat = zero(pos_mat)
@@ -289,13 +290,13 @@ module Utils
 
     function get_fixed_pair_vec(struc::Struc, mag_num_vec, supercell_size, pair_vec)
         mag_struc = magonly(struc, mag_num_vec)
-        mag_atom_count = length(mag_struc.num_vec)
+        mag_atom_per_cell = length(mag_struc.num_vec) ÷ prod(supercell_size)
         possibile_dis_vec = [
             (
                 norm(
                     mag_struc.lattice_mat * (
                         mag_struc.pos_mat[:, pair_vec[1]] - (
-                            mag_struc.pos_mat[:, pair_vec[2]] + [diff_x, diff_y, 0]
+                            mag_struc.pos_mat[:, pair_vec[2]] .+ [diff_x, diff_y, 0]
                         )
                     )
                 ),
@@ -304,13 +305,13 @@ module Utils
             for diff_x = -1:1 for diff_y in -1:1
         ]
         _, min_dis_idx = findmin(first, possibile_dis_vec)
-        center_idx = linear_idx_to_vec(pair_vec[1], supercell_size, mag_atom_count)
-        point_idx = linear_idx_to_vec(pair_vec[2], supercell_size, mag_atom_count)
+        center_idx = linear_idx_to_vec(pair_vec[1], supercell_size, mag_atom_per_cell)
+        point_idx = linear_idx_to_vec(pair_vec[2], supercell_size, mag_atom_per_cell)
 
         cell_idx_diff = @. (
-            point_idx[2:end] -
-            center_idx[2:end] +
-            [possibile_dis_vec[min_dis_idx][2:3]..., 0] * supercell_size
+            possibile_dis_vec[min_dis_idx][2:3] .* supercell_size[1:2] +
+            point_idx[2:3] -
+            center_idx[2:3]
         )
         fixed_pair_vec = vcat(center_idx[1], cell_idx_diff[1:2], point_idx[1])
 
