@@ -30,6 +30,7 @@ function mcmc(
     n_type = length(lattice.magmom_vector)
     n_pair = size(lattice.interact_coeff_array, 3)
     atom_size_tuple = (n_type, x_lattice, y_lattice)
+    atom_num = prod(atom_size_tuple)
 
     states_array = KAzeros(backend, T, 3, atom_size_tuple...)
     rand_states_array = KAzeros(backend, T, 3, atom_size_tuple...)
@@ -90,8 +91,8 @@ function mcmc(
         showspeed=true,
         enabled=progress_enabled
     )
-    mag_mean_vec = zeros(T, mcmethod.measuring_step_num)
-    energy_mean_vec = zeros(T, mcmethod.measuring_step_num)
+    mag_mean_norm_vec = zeros(T, mcmethod.measuring_step_num)
+    energy_sum_vec = zeros(T, mcmethod.measuring_step_num)
     for idx_measure = 1:mcmethod.measuring_step_num
         rand_states!(rand_states_array)
         synchronize(backend)
@@ -109,8 +110,8 @@ function mcmc(
             synchronize(backend)
         end
 
-        mag_mean_vec[idx_measure] = mag_mean(states_array)
-        energy_mean_vec[idx_measure] = energy_mean(
+        mag_mean_norm_vec[idx_measure] = mag_mean_norm(states_array)
+        energy_sum_vec[idx_measure] = energy_sum(
             states_array,
             pair_mat,
             interact_coeff_array,
@@ -121,11 +122,11 @@ function mcmc(
         next!(p)
     end
 
-    mag = mean(mag_mean_vec)
-    susceptibility = (mean(mag_mean_vec.^2) - mean(mag_mean_vec)^2)/temperature
-    specific_heat = (mean(energy_mean_vec.^2) - mean(energy_mean_vec)^2)/temperature^2
+    mag_norm = mean(mag_mean_norm_vec)
+    susceptibility = (mean(mag_mean_norm_vec.^2) - mean(mag_mean_norm_vec)^2)/ temperature * atom_num
+    specific_heat = (mean(energy_sum_vec.^2) - mean(energy_sum_vec)^2)/(atom_num * temperature^2)
 
-    return states_array, mag, susceptibility, specific_heat
+    return states_array, mag_norm, susceptibility, specific_heat
 end
 
 function mcmc_with_environment_change(
@@ -136,10 +137,9 @@ function mcmc_with_environment_change(
     progress_enabled::Bool=true
 ) where T
     states_array_vec = Vector{AbstractArray{T}}()
-    mag_vec = Vector{T}()
+    mag_norm_vec = Vector{T}()
     susceptibility_vec = Vector{T}()
     specific_heat_vec = Vector{T}()
-
 
     timestamp_logger(logger) = TransformerLogger(logger) do log
         merge(log, (; message = "$(Dates.format(now(), "yyyy-mm-dd HH:MM:SS")) $(log.message)"))
@@ -150,7 +150,7 @@ function mcmc_with_environment_change(
     )
 
     with_logger(real_logger) do
-        states_array, mag, susceptibility, specific_heat = mcmc(
+        states_array, mag_norm, susceptibility, specific_heat = mcmc(
             lattice,
             environment_vec[1],
             mcmethod;
@@ -158,12 +158,12 @@ function mcmc_with_environment_change(
             progress_enabled=progress_enabled
         )
         push!(states_array_vec, states_array)
-        push!(mag_vec, mag)
+        push!(mag_norm_vec, mag_norm)
         push!(susceptibility_vec, susceptibility)
         push!(specific_heat_vec, specific_heat)
 
         for environment in environment_vec[2:end]
-            states_array, mag, susceptibility, specific_heat = mcmc(
+            states_array, mag_norm, susceptibility, specific_heat = mcmc(
                 lattice,
                 environment,
                 mcmethod;
@@ -174,14 +174,14 @@ function mcmc_with_environment_change(
             )
 
             push!(states_array_vec, states_array)
-            push!(mag_vec, mag)
+            push!(mag_norm_vec, mag_norm)
             push!(susceptibility_vec, susceptibility)
             push!(specific_heat_vec, specific_heat)
         end
     end
 
     states_change_array = stack(states_array_vec)
-    return states_change_array, mag_vec, susceptibility_vec, specific_heat_vec
+    return states_change_array, mag_norm_vec, susceptibility_vec, specific_heat_vec
 end
 
 end

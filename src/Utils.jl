@@ -468,7 +468,8 @@ module Utils
             end
         end
 
-        return energy
+        # convert energy from eV to meV
+        return energy * 1000
     end
 
     function get_coeff_mat(map::Map, energy_vec)

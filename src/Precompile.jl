@@ -31,13 +31,6 @@ if Base.VERSION >= v"1.9"
                     pair_ds,
                     pair_relation_dict
                 )
-
-                Sym4state.MC.mcmc(
-                    lattice,
-                    environment,
-                    mcmethod;
-                    progress_enabled=false
-                )
             end
         end
     end

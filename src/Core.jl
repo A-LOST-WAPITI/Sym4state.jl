@@ -7,7 +7,7 @@ module ModCore
     using ..Types
 
 
-    export pre_process
+    export pre_process, post_process
 
 
     function reduce_interact_mat_for_a_pair(
