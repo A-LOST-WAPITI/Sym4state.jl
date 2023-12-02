@@ -8,8 +8,8 @@ module MCUtils
     export domain_decompose
 
 
-    function domain_decompose(lattice::Lattice)
-        pair_mat = lattice.pair_mat
+    function domain_decompose(mcconfig::MCConfig)
+        pair_mat = mcconfig.pair_mat
         hull_points = convex_hull(
             eachcol(pair_mat[2:3, :]) .|> Vector |> vec
         )
@@ -19,16 +19,19 @@ module MCUtils
         size_fix_flag = !iszero(
             [
                 n_lattice % hull_area
-                for n_lattice in lattice.size
+                for n_lattice in mcconfig.lattice_size
             ]
         )
         if size_fix_flag
-            x_lattice = len_fix(lattice.size[1], hull_area)
-            y_lattice = len_fix(lattice.size[2], hull_area)
-            lattice.size = [x_lattice, y_lattice]
+            x_lattice = len_fix(mcconfig.lattice_size[1], hull_area)
+            y_lattice = len_fix(mcconfig.lattice_size[2], hull_area)
+            mcconfig = MCConfig(
+                mcconfig,
+                lattice_size = [x_lattice, y_lattice]
+            )
             @info "Size of the lattice has been fixed to $(x_lattice)x$(y_lattice)."
         else
-            x_lattice, y_lattice = lattice.size
+            x_lattice, y_lattice = mcconfig.lattice_size
         end
 
         equal_points_num = length(hull_points)
@@ -38,7 +41,7 @@ module MCUtils
         ]
         color_check_mat, colors = color_check(x_lattice, y_lattice, equal_points_idx)
 
-        return color_check_mat, colors
+        return mcconfig, color_check_mat, colors
     end
 
     function color_check(x_lattice, y_lattice, equal_points_idx)

@@ -1,12 +1,5 @@
-[lattice]
+# Lattice
 size = [24, 24]
-cell_mat = [
-    [ 1.00,  0.00],
-    [-0.50,  0.87]
-]
-offset_mat = [
-    [ 0.00,  0.00]
-]
 magmom_vector = [2.00]
 pair_mat = [
     # NNN
@@ -113,11 +106,11 @@ interact_coeff_array = [
     ]
 ]
 
-[environment]
+# Environment
 temperature = [70, 0]
 temperature_step = -2
 magnetic_field = [0.0, 0.0, 0.0]
 
-[mcmethod]
+# Monte Carlo
 equilibration_step_num = 100000
 measuring_step_num = 100000

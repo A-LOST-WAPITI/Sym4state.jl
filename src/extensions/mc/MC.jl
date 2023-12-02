@@ -6,8 +6,10 @@ module MC
     include("Measure.jl")
     include("Core.jl")
 
-    using .MCCore: mcmc, mcmc_with_environment_change
-    using .MCExternal: load_config
 
-    export mcmc, mcmc_with_environment_change, load_config
+    using .MCCore
+    using .MCExternal
+
+
+    export mcmc, load_config
 end

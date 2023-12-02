@@ -15,12 +15,6 @@ if Base.VERSION >= v"1.9"
         )
         log_filter = MinLevelLogger(current_logger(), Logging.Error)
 
-        lattice, _, _ = Sym4state.MC.load_config(
-            abspath(@__DIR__) * "/../test/mc_tomls/CrI3_N.TOML"
-        )
-        environment = Sym4state.MC.MCTypes.Environment{Float32}(1e-5, zeros(3))
-        mcmethod = Sym4state.MC.MCTypes.MCMethod(10, 1)
-
         with_logger(log_filter) do
             @compile_workload begin
                 Sym4state.ModCore.sym4state(
