@@ -7,9 +7,10 @@ module MC
     include("Core.jl")
 
 
-    using .MCCore
+    using .MCTypes
     using .MCExternal
+    using .MCCore
 
 
-    export mcmc, load_config
+    export MCConfig, load_config, save_config, mcmc
 end
