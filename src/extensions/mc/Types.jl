@@ -1,23 +1,71 @@
 module MCTypes
-    export Lattice, Environment, MCMethod
 
-    mutable struct Lattice{T<:AbstractFloat}
-        size::AbstractVector{Int}
-        cell_mat::AbstractMatrix{T}
-        offset_mat::AbstractMatrix{T}
-        magmom_vector::AbstractVector{T}
-        pair_mat::AbstractMatrix{Int}
-        interact_coeff_array::AbstractArray{T, 3}
+
+using Parameters
+using ArgCheck
+
+
+export MCConfig
+
+
+@with_kw struct MCConfig{T<:Real}
+    # parameters for lattice
+    lattice_size::Vector{Int}   = [128, 128]
+    magmom_vector::Vector{T}
+    pair_mat::Matrix{Int}
+    interact_coeff_array::Array{T, 3}
+    # parameters for environment
+    temperature::Vector{T}      = zeros(eltype(magmom_vector), 1)
+    magnetic_field::VecOrMat{T} = zeros(eltype(magmom_vector), 3)
+    # parameters for monte carlo
+    equilibration_step_num::Int = 100_000
+    measuring_step_num::Int     = 100_000
+
+    # dimension check when construct
+    MCConfig{T}(
+        lattice_size,
+        magmom_vector,
+        pair_mat,
+        interact_coeff_array,
+        temperature,
+        magnetic_field,
+        equilibration_step_num,
+        measuring_step_num
+    ) where {T} = begin
+        @argcheck size(pair_mat, 2) == size(interact_coeff_array, 3) DimensionMismatch
+
+        new(
+            lattice_size,
+            magmom_vector,
+            pair_mat,
+            interact_coeff_array,
+            temperature,
+            magnetic_field,
+            equilibration_step_num,
+            measuring_step_num
+        )
     end
 
-    struct Environment{T<:AbstractFloat}
-        temperature::T
-        magnetic_field::AbstractVector{T}
-    end
+    MCConfig{T}(
+        magmom_vector,
+        pair_mat,
+        interact_coeff_array
+    ) where {T} = MCConfig{T}(
+        magmom_vector=magmom_vector,
+        pair_mat=pair_mat,
+        interact_coeff_array=interact_coeff_array
+    )
+end
+# Outer constructor for not given type specifically
+MCConfig(
+    magmom_vector::Vector{T},
+    pair_mat::Matrix{Int},
+    interact_coeff_array::Array{T, 3}
+) where {T} = MCConfig{T}(
+    magmom_vector=magmom_vector,
+    pair_mat=pair_mat,
+    interact_coeff_array=interact_coeff_array
+)
 
-    struct MCMethod
-        equilibration_step_num::Int
-        measuring_step_num::Int
-        #TODO: PTMC
-    end
+
 end

@@ -11,11 +11,11 @@
 ## CondaPkg.jl
 .CondaPkg
 
-## JLD2
-*.jld2
-
 ## test
 test.jl
 
 ## temp POSCAR
 POSCAR_*
+
+## logfile
+*.log

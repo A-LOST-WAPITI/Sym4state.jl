@@ -16,6 +16,7 @@ module Utils
     export magonly
     export check_z_rot
     export get_fixed_pair_vec
+    export check_unit_cell
 
 
     include("data/CovalentRadius.jl")
@@ -67,11 +68,11 @@ module Utils
                 mag_config[:, idx_2] .+= mag_beta
                 mag_config[:, Not(target_idx_vec)] .+= mag_left
 
-                mag_config .*= s_value
-
                 for mag in eachcol(mag_config)
                     normalize!(mag)
                 end
+
+                mag_config .*= s_value
                 push!(mag_config_vec, mag_config)
             end
         end
@@ -90,7 +91,8 @@ module Utils
 
         lattice_mat = pyconvert(Matrix{Float64}, py_lattice_mat)
         pos_mat = pyconvert(Matrix{Float64}, py_pos_mat)
-        pos_mat = mod1.(pos_mat, 1)
+        # fractional coordinates should already be in [0, 1)
+        # pos_mat = mod.(pos_mat, 1)
         num_vec = pyconvert(Vector{Int64}, py_num_vec)
         if isa(spin_mat, Nothing)
             spin_mat = zero(pos_mat)
@@ -227,26 +229,23 @@ module Utils
     end
 
     function equal_pair(
-        py_struc,
-        mag_num_vec,
+        mag_struc::Struc,
         center_idx_vec,
         cutoff_radius,
         sym_op_vec;
         atol=1e-2
     )
-        # remove all nonmagnetic atoms for only considering pairs between
-        # magnetic atoms
-        py_mag_struc = py_struc.copy()
-        num_vec = pyconvert(Vector, py_struc.atomic_numbers)
-        nonmag_num_vec = setdiff(unique(num_vec), mag_num_vec)
-        py_mag_struc.remove_species(PyList(nonmag_num_vec))
+        # check whether unitcell is large enough
+        unitcell_check_flag = check_unit_cell(mag_struc.lattice_mat, cutoff_radius)
+        if !unitcell_check_flag
+            return false, nothing, nothing
+        end
 
-        mag_struc = py_struc_to_struc(py_mag_struc)
         consider_pair_vec_vec = consider_pair_vec_in_radius(mag_struc, center_idx_vec, cutoff_radius)
 
         # there exists multiple pairs between center atom and one point atom
         if length(unique(consider_pair_vec_vec)) != length(consider_pair_vec_vec)
-            return nothing, nothing
+            return false, nothing, nothing
         end
 
         pair_ds = DisjointSets(consider_pair_vec_vec)
@@ -286,18 +285,18 @@ module Utils
             end
         end
 
-        return pair_ds, pair_relation_dict
+        return true, pair_ds, pair_relation_dict
     end
 
     function get_fixed_pair_vec(struc::Struc, mag_num_vec, supercell_size, pair_vec)
         mag_struc = magonly(struc, mag_num_vec)
-        mag_atom_count = length(mag_struc.num_vec)
+        mag_atom_per_cell = length(mag_struc.num_vec) ÷ prod(supercell_size)
         possibile_dis_vec = [
             (
                 norm(
                     mag_struc.lattice_mat * (
                         mag_struc.pos_mat[:, pair_vec[1]] - (
-                            mag_struc.pos_mat[:, pair_vec[2]] + [diff_x, diff_y, 0]
+                            mag_struc.pos_mat[:, pair_vec[2]] .+ [diff_x, diff_y, 0]
                         )
                     )
                 ),
@@ -306,13 +305,13 @@ module Utils
             for diff_x = -1:1 for diff_y in -1:1
         ]
         _, min_dis_idx = findmin(first, possibile_dis_vec)
-        center_idx = linear_idx_to_vec(pair_vec[1], supercell_size, mag_atom_count)
-        point_idx = linear_idx_to_vec(pair_vec[2], supercell_size, mag_atom_count)
+        center_idx = linear_idx_to_vec(pair_vec[1], supercell_size, mag_atom_per_cell)
+        point_idx = linear_idx_to_vec(pair_vec[2], supercell_size, mag_atom_per_cell)
 
         cell_idx_diff = @. (
-            point_idx[2:end] -
-            center_idx[2:end] +
-            [possibile_dis_vec[min_dis_idx][2:3]..., 0] * supercell_size
+            possibile_dis_vec[min_dis_idx][2:3] .* supercell_size[1:2] +
+            point_idx[2:3] -
+            center_idx[2:3]
         )
         fixed_pair_vec = vcat(center_idx[1], cell_idx_diff[1:2], point_idx[1])
 
@@ -459,18 +458,18 @@ module Utils
     end
 
 
-    function get_energy_and_magmom(py_outcar)
-        energy = pyconvert(Float64, py_outcar.final_energy)
+    function grep_energy(oszicar_path)
+        energy = 0.0
+        for line in Iterators.reverse(eachline(oszicar_path))
+            m = match(r"E0", line)
+            if !isnothing(m)
+                energy = parse(Float64, split(line)[5])
+                break
+            end
+        end
 
-        py_mag_mat = py_np.vstack(
-            [item["tot"].moment for item in py_outcar.magnetization]
-        )
-        mag_mat = permutedims(
-            pyconvert(Matrix{Float64}, py_mag_mat),
-            (2, 1)
-        )
-
-        return energy, mag_mat
+        # convert energy from eV to meV
+        return energy * 1000
     end
 
     function get_coeff_mat(map::Map, energy_vec)
@@ -500,28 +499,27 @@ module Utils
 
     function get_one_interact_coeff_mat(map::Map, cal_dir::String)
         fallback_vec = map.fallback_vec
-        conf_dir_vec = readdir(cal_dir, join=true)
-        @assert length(fallback_vec) == length(conf_dir_vec)
 
-        energy_vec = Dict{Int8, Float64}()
-        for (conf_idx, conf_dir) in enumerate(conf_dir_vec)
+        energy_dict = Dict{Int8, Float64}()
+        for conf_idx = eachindex(fallback_vec)
+            conf_dir = cal_dir * "/conf_$(conf_idx)"
             # target_conf_mag_mat = map.struc_vec[conf_idx].spin_mat
-            py_outcar = py_Outcar(conf_dir * "/OUTCAR")
-            energy, mag_mat = get_energy_and_magmom(py_outcar)
+            # py_outcar = py_Outcar(conf_dir * "/OUTCAR")
+            energy = grep_energy(conf_dir * "/OSZICAR")
 
-            target_mag_mat = mag_mat
-            target_mag_mat = round.(target_mag_mat, RoundToZero; digits=1)
-            for col in eachcol(target_mag_mat)
-                normalize!(col)
-            end
+            # target_mag_mat = mag_mat
+            # target_mag_mat = round.(target_mag_mat, RoundToZero; digits=1)
+            # for col in eachcol(target_mag_mat)
+            #     normalize!(col)
+            # end
             # if !isapprox(target_mag_mat, target_conf_mag_mat)
                 # @error "MAGMOM of $(conf_dir) changed after SCF!"
             # end
 
-            energy_vec[fallback_vec[conf_idx]] = energy
+            energy_dict[fallback_vec[conf_idx]] = energy
         end
 
-        coeff_mat = get_coeff_mat(map, energy_vec)
+        coeff_mat = get_coeff_mat(map, energy_dict)
 
         return coeff_mat
     end
@@ -595,5 +593,33 @@ module Utils
             struc.pos_mat[:, mag_flag_vec],
             struc.spin_mat[:, mag_flag_vec]
         )
+    end
+
+    function check_unit_cell(unit_cell_matrix, cutoff)
+        # from https://github.com/m3g/CellListMap.jl/raw/3010734b6a4dd4a9366a4a1184cfffb72798b977/src/Box.jl
+        # remove size check and output print when check fails
+
+        a = @view(unit_cell_matrix[:, 1])
+        b = @view(unit_cell_matrix[:, 2])
+        c = @view(unit_cell_matrix[:, 3])
+        check = true
+
+        bc = cross(b, c)
+        bc = bc / norm(bc)
+        aproj = dot(a, bc)
+    
+        ab = cross(a, b)
+        ab = ab / norm(ab)
+        cproj = dot(c, ab)
+    
+        ca = cross(c, a)
+        ca = ca / norm(ca)
+        bproj = dot(b, ca)
+    
+        if (aproj <= 2 * cutoff) || (bproj <= 2 * cutoff) || (cproj <= 2 * cutoff)
+            check = false
+        end
+    
+        return check
     end
 end

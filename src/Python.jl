@@ -2,13 +2,12 @@ module Python
     using PythonCall
 
 
-    export pyconvert, PyList, pylist
+    export pyconvert, PyList, pylist, Py
     export py_Struc, py_Incar, py_Outcar, py_Sga, py_np
 
 
     const py_Struc = PythonCall.pynew()
     const py_Incar = PythonCall.pynew()
-    const py_Outcar = PythonCall.pynew()
     const py_Sga = PythonCall.pynew()
     const py_np = PythonCall.pynew()
 
@@ -20,10 +19,6 @@ module Python
         PythonCall.pycopy!(
             py_Incar,
             pyimport("pymatgen.io.vasp.inputs").Incar
-        )
-        PythonCall.pycopy!(
-            py_Outcar,
-            pyimport("pymatgen.io.vasp").Outcar
         )
         PythonCall.pycopy!(
             py_Sga,

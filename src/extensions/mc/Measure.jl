@@ -5,14 +5,14 @@ module MCMeasure
     using KernelAbstractions: zeros as KAzeros
 
 
-    export mag_mean, energy_mean
+    export mag_mean_norm, energy_sum
 
 
-    function mag_mean(states_array)
+    function mag_mean_norm(states_array)
         mag_mean_vec = mean(states_array, dims=(2, 3, 4))
-        mag_mean = norm(mag_mean_vec)
+        result = norm(mag_mean_vec)
 
-        return mag_mean
+        return result
     end
 
     @kernel function site_energy_kernel!(
@@ -56,7 +56,7 @@ module MCMeasure
             end
         end
 
-        energy_array[idx_x, idx_y, idx_t] = energy
+        energy_array[idx_t, idx_x, idx_y] = energy
     end
 
     function site_energy!(
@@ -82,7 +82,7 @@ module MCMeasure
         )
     end
 
-    function energy_mean(
+    function energy_sum(
         states_array::AbstractArray{T},
         pair_mat::AbstractArray{Int},
         interact_coeff_array::AbstractArray{T},
@@ -102,6 +102,6 @@ module MCMeasure
             magnetic_field
         )
 
-        return mean(energy_array)
+        return sum(energy_array)
     end
 end

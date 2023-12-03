@@ -5,4 +5,11 @@ module MC
     include("Flip.jl")
     include("Measure.jl")
     include("Core.jl")
+
+
+    using .MCCore
+    using .MCExternal
+
+
+    export mcmc, load_config
 end

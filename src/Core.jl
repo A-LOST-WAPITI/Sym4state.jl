@@ -1,13 +1,13 @@
 module ModCore
     using FileIO
-    using DataStructures: IntDisjointSets, union!, num_groups, find_root!
+    using DataStructures: DisjointSets, IntDisjointSets, union!, num_groups, find_root!
     using LinearAlgebra: norm
     using ..Python
     using ..Utils
     using ..Types
 
 
-    export pre_process
+    export pre_process, post_process
 
 
     function reduce_interact_mat_for_a_pair(
@@ -62,66 +62,68 @@ module ModCore
 
     function supercell_check(
         py_refined_struc,
-        supercell_size,
         mag_num_vec,
         mag_atom_count,
         cutoff_radius;
         symprec=1e-2,
-        angle_tolerance=5.0
+        angle_tolerance=5.0,
+        max_supercell=10
     )
-        py_refined_supercell_struc = py_refined_struc.copy()
-        py_refined_supercell_struc.make_supercell(supercell_size)
-        py_supercell_sga = py_Sga(
-            py_refined_supercell_struc,
-            symprec=symprec,
-            angle_tolerance=angle_tolerance
-        )
+        local py_refined_supercell_struc, supercell_size    # structure
+        local sym_op_vec # symmetry related
+        local pair_ds, pair_relation_dict   # pair
+        local pass_flag
+        for supercell_ratio = 2:max_supercell
+            supercell_size = [supercell_ratio, supercell_ratio, 1]
 
-        sym_op_vec = get_sym_op_vec(py_supercell_sga)
-
-        center_idx_vec = [
-            (idx - 1) * prod(supercell_size) + idx
-            for idx = 1:mag_atom_count
-        ]
-        @info ""
-        local pair_ds, pair_relation_dict
-        try
-            pair_ds, pair_relation_dict = equal_pair(
+            py_refined_supercell_struc = py_refined_struc.copy()
+            py_refined_supercell_struc.make_supercell(supercell_size)
+            py_supercell_sga = py_Sga(
                 py_refined_supercell_struc,
-                mag_num_vec,
+                symprec=symprec,
+                angle_tolerance=angle_tolerance
+            )
+
+            mag_struc = magonly(py_struc_to_struc(py_refined_supercell_struc), mag_num_vec)
+            sym_op_vec = get_sym_op_vec(py_supercell_sga)
+
+            center_idx_vec = [
+                (idx - 1) * prod(supercell_size) + idx
+                for idx = 1:mag_atom_count
+            ]
+            pass_flag, pair_ds, pair_relation_dict = equal_pair(
+                mag_struc,
                 center_idx_vec,
                 cutoff_radius,
                 sym_op_vec
             )
-        catch _
-            @info "$(supercell_size) supercell is not large enough " * 
-                "for calculating all interactions within a cutoff radius of $(cutoff_radius) Å."
-            large_enough_flag = false
-            return large_enough_flag, nothing, nothing, nothing, nothing
-        else
-            @info "$(supercell_size) supercell is large enough."
-            py_refined_supercell_struc.to("POSCAR_refined")
-            @info "The refined structure has been dumped into \"POSCAR_refined\"."
-            large_enough_flag = true
-            return large_enough_flag, py_refined_supercell_struc, sym_op_vec, pair_ds, pair_relation_dict
+
+            if pass_flag
+                break
+            end
         end
+
+        if !pass_flag
+            error("Can't find large enough supercell!")
+        end
+
+        @info "$(supercell_size) supercell is large enough."
+        struc = py_struc_to_struc(py_refined_supercell_struc)
+
+        return struc, supercell_size, sym_op_vec, pair_ds, pair_relation_dict
     end
 
 
     function sym4state(
-        py_struc,
-        mag_num_vec,
-        cutoff_radius;
-        supercell_size::Union{Nothing, AbstractVector{Int}}=nothing,
+        py_struc::Py,
+        mag_num_vec::AbstractVector{Int},
+        cutoff_radius::T;
         atol=1e-2,
         symprec=1e-2,
         angle_tolerance=5.0,
         max_supercell=10,
         s_value=1.0
-    )
-        @info "Absolute tolrance is set to $(atol)"
-        @info "Symmetry precision is set to $(symprec)"
-
+    ) where T
         py_sga = py_Sga(
             py_struc,
             symprec=symprec,
@@ -136,41 +138,43 @@ module ModCore
         @info "There are $(mag_atom_count) atoms taken as magnetic in the given primitive cell."
         @info "The space group number of given structure is $(spg_num) with given `symprec`"
 
-        local py_refined_supercell_struc    # structure
-        local rotation_sym_flag, sym_op_vec # symmetry related
-        local pair_ds, pair_relation_dict   # pair
-        if isnothing(supercell_size)
-            for supercell_size_ratio = 2:max_supercell
-                supercell_size = [supercell_size_ratio, supercell_size_ratio, 1]
-                large_enough_flag, py_refined_supercell_struc, sym_op_vec, pair_ds, pair_relation_dict = supercell_check(
-                    py_refined_struc,
-                    supercell_size,
-                    mag_num_vec,
-                    mag_atom_count,
-                    cutoff_radius;
-                    symprec=symprec,
-                    angle_tolerance=angle_tolerance
-                )
+        raw_struc, supercell_size, sym_op_vec, pair_ds, pair_relation_dict = supercell_check(
+            py_refined_struc,
+            mag_num_vec,
+            mag_atom_count,
+            cutoff_radius;
+            symprec=symprec,
+            angle_tolerance=angle_tolerance,
+            max_supercell=max_supercell
+        )
 
-                if large_enough_flag
-                    break
-                end
-            end
-        else    # if `supercell_size` is given
-            large_enough_flag, py_refined_supercell_struc, sym_op_vec, pair_ds, pair_relation_dict = supercell_check(
-                py_refined_struc,
-                supercell_size,
-                mag_num_vec,
-                mag_atom_count,
-                cutoff_radius;
-                symprec=symprec,
-                angle_tolerance=angle_tolerance
-            )
+        mv("POSCAR", "POSCAR_bak"; force=true)
+        py_struc.make_supercell(supercell_size)
+        py_struc.to("POSCAR")
+        @info "The supercell has been dumped into \"POSCAR\"."
 
-            if !large_enough_flag
-                error("Given supercell size is not large enough.")
-            end
-        end
+        sym4state(
+            raw_struc,
+            supercell_size,
+            mag_num_vec,
+            sym_op_vec,
+            pair_ds,
+            pair_relation_dict,
+            atol=atol,
+            s_value=s_value
+        )
+    end
+
+    function sym4state(
+        raw_struc::Struc,
+        supercell_size::AbstractVector{Int},
+        mag_num_vec::AbstractVector{Int},
+        sym_op_vec::AbstractVector{SymOp},
+        pair_ds::DisjointSets,
+        pair_relation_dict::Dict;
+        atol=1e-2,
+        s_value=1.0
+    )
         rotation_sym_flag = false
         for sym_op in sym_op_vec
             if check_z_rot(sym_op)
@@ -197,7 +201,6 @@ module ModCore
             end
         end
 
-        raw_struc = py_struc_to_struc(py_refined_supercell_struc)
         map_vec = Map[]
         relation_vec = CoeffMatRef[]
         map::Union{Nothing, Map} = nothing
@@ -276,7 +279,6 @@ module ModCore
         filepath,
         mag_num_vec,
         cutoff_radius;
-        supercell_size::Union{Nothing, AbstractVector{Int}}=nothing,
         atol=1e-2,
         symprec=1e-2,
         angle_tolerance=5.0,
@@ -296,7 +298,6 @@ module ModCore
             atol=atol,
             symprec=symprec,
             angle_tolerance=angle_tolerance,
-            supercell_size=supercell_size,
             max_supercell=max_supercell,
             s_value=s_value
         )
