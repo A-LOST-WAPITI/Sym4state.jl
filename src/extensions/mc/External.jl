@@ -2,9 +2,10 @@ module MCExternal
 
 
 using TOML
-using Unitful: @u_str
+using Unitful: @u_str, ustrip
 using UnitfulAtomic: auconvert, austrip
 using ArgCheck
+using Printf
 
 using ..MCTypes
 using ..MCUtils
@@ -16,33 +17,33 @@ export load_config
 const MU_B::Rational{Int} = 1//2
 
 
-### This function converts a multi-dimensional array into a list of its slices.
-### It calls itself recursively to handle arrays of any dimension.
-### 
-### @param x Multi-dimensional array to be converted.
-### @return If the array is of dimension greater than 1, it 
-### splits it on the last dimension,
-### convert each slice recursively to a list, and finally return the list of 
-### all slices. If the array dimension is 1, it simply returns the array.
-###
-function array_to_vec_recursive(x)
-    dims = ndims(x) # Get the number of dimensions of the array x
+function print_array_to_vec_recursion(io::IO, x, blanks=0; no_comma_at_end=true)
+    dims = ndims(x)
+    prefix = "    "^blanks
 
-    # If the array has more than one dimension
+    print(io, prefix * "[")
     if dims > 1
-        # Recursively process each slice of the array by passing each slice to
-        # the same function. The `eachslice()` function returns an iterable 
-        # over the array slices in the specified dimension.
-        return [
-            array_to_vec_recursive(one_slice)
-            for one_slice in eachslice(x, dims=dims)
-        ]
+        println(io)
+        for one_slice in eachslice(x, dims=dims)
+            print_array_to_vec_recursion(io, one_slice, blanks + 1; no_comma_at_end=false)
+        end
     else
-        # If the array has only one dimension, return the array itself
-        return x
+        for item in x
+            if isa(item, Integer)
+                @printf(io, "%10d,", item)
+            else
+                @printf(io, "%10.3f,", item)
+            end
+        end
     end
-end 
+    print(io, prefix * "]")
 
+    if !no_comma_at_end
+        println(io, ",")
+    end
+
+    return nothing
+end 
 
 function vec_to_array_recursion(x)
     if all(isbitstype, eltype.(x))
@@ -52,6 +53,32 @@ function vec_to_array_recursion(x)
     end
 end
 
+function save_config(filepath::String, mcconfig::MCConfig)
+    config_dict = Dict(
+        # Lattice
+        "magmom_vector" => mcconfig.magmom_vector,
+        "pair_mat"      => mcconfig.pair_mat,
+        "interact_coeff_array"  => ustrip.(auconvert.(u"meV", mcconfig.interact_coeff_array)),
+        # Environment
+        "temperature"   => ustrip.(auconvert.(u"K", mcconfig.temperature)),
+        "magnetic_field"=> ustrip.(auconvert.(u"T", mcconfig.magnetic_field)),
+        # Monte Carlo
+        "equilibration_step_num"=> mcconfig.equilibration_step_num,
+        "measuring_step_num"    => mcconfig.measuring_step_num
+    )
+
+    open(filepath, "w") do io
+        for key in keys(config_dict)
+            print(io, key * " = ")
+            if !endswith(key, "num")
+                print_array_to_vec_recursion(io, config_dict[key])
+            else
+                @printf(io, "%10d\n", config_dict[key])
+            end
+            println(io)
+        end
+    end
+end
 
 function load_config(filepath::String, T::Type=Float32)
     config = TOML.parsefile(filepath)
@@ -74,7 +101,7 @@ function load_config(filepath::String, T::Type=Float32)
 
     # get optional environment parameters
     temperature_step::T = get(config, "temperature_step", 0)
-    temperature::Vector{T} = get(config, "temperature", zeros(T, 1))
+    temperature::Vector{T} = get(config, "temperature", zeros(T, 1)) .|> T
     if !iszero(temperature_step)
         @argcheck length(temperature) == 2 "The start and stop points should be given in `temperature` if `temperature_step` is not zero."
         temperature = temperature[1]:temperature_step:temperature[2] |> collect
