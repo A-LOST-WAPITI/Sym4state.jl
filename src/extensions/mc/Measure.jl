@@ -5,10 +5,10 @@ module MCMeasure
     using KernelAbstractions: zeros as KAzeros
 
 
-    export mag_mean_norm, energy_sum
+    export get_norm_mean_mag, get_energy_sum
 
 
-    function mag_mean_norm(states_array)
+    function get_norm_mean_mag(states_array)
         mag_mean_vec = mean(states_array, dims=(2, 3, 4))
         result = norm(mag_mean_vec)
 
@@ -82,7 +82,7 @@ module MCMeasure
         )
     end
 
-    function energy_sum(
+    function get_energy_sum(
         states_array::AbstractArray{T},
         pair_mat::AbstractArray{Int},
         interact_coeff_array::AbstractArray{T},

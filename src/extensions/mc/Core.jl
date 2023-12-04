@@ -62,9 +62,9 @@ function mcmc(
     ]
 
     # loop over different environments
-    mag_mean_norm_over_env = zeros(T, env_num)
+    norm_mean_mag_over_env = zeros(T, env_num)
     susceptibility_over_env = zeros(T, env_num)
-    specific_over_env = zeros(T, env_num)
+    specific_heat_over_env = zeros(T, env_num)
     states_over_env = KAzeros(backend, T, 3, atom_size_tuple..., env_num)
     env_idx = 1
     for mag in eachcol(magnetic_field), temp in temperature
@@ -100,7 +100,7 @@ function mcmc(
             showspeed=true,
             enabled=progress_enabled
         )
-        mag_mean_norm_vec = zeros(T, mcconfig.measuring_step_num)
+        norm_mean_mag_vec = zeros(T, mcconfig.measuring_step_num)
         energy_sum_vec = zeros(T, mcconfig.measuring_step_num)
         for idx_measure = 1:mcconfig.measuring_step_num
             rand_states!(rand_states_array)
@@ -119,8 +119,8 @@ function mcmc(
                 synchronize(backend)
             end
 
-            mag_mean_norm_vec[idx_measure] = mag_mean_norm(states_array)
-            energy_sum_vec[idx_measure] = energy_sum(
+            norm_mean_mag_vec[idx_measure] = get_norm_mean_mag(states_array)
+            energy_sum_vec[idx_measure] = get_energy_sum(
                 states_array,
                 pair_mat,
                 interact_coeff_array,
@@ -131,13 +131,13 @@ function mcmc(
             next!(p)
         end
 
-        mag_norm = mean(mag_mean_norm_vec)
-        susceptibility = (mean(mag_mean_norm_vec.^2) - mean(mag_mean_norm_vec)^2)/ temp * atom_num
+        norm_mean_mag = mean(norm_mean_mag_vec)
+        susceptibility = (mean(norm_mean_mag_vec.^2) - mean(norm_mean_mag_vec)^2)/ temp * atom_num
         specific_heat = (mean(energy_sum_vec.^2) - mean(energy_sum_vec)^2)/(atom_num * temp^2)
 
-        mag_mean_norm_over_env[env_idx] = mag_norm
+        norm_mean_mag_over_env[env_idx] = norm_mean_mag
         susceptibility_over_env[env_idx] = susceptibility
-        specific_over_env[env_idx] = specific_heat
+        specific_heat_over_env[env_idx] = specific_heat
         states_over_env[:, :, :, :, env_idx] .= states_array
         env_idx += 1
     end
@@ -145,7 +145,7 @@ function mcmc(
     # download date from device to host
     states_over_env = Array(states_over_env)
 
-    return states_over_env, mag_mean_norm_over_env, susceptibility_over_env, specific_over_env
+    return states_over_env, norm_mean_mag_over_env, susceptibility_over_env, specific_heat_over_env
 end
 
 
