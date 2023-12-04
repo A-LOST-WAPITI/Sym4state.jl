@@ -11,7 +11,7 @@ using ..MCTypes
 using ..MCUtils
 
 
-export load_config
+export load_config, save_config
 
 
 const MU_B::Rational{Int} = 1//2
