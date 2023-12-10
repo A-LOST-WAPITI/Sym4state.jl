@@ -2,7 +2,7 @@ module MCCore
 
 
 using ProgressMeter: Progress, next!
-using KernelAbstractions: synchronize, Backend, CPU, copyto!
+using KernelAbstractions: synchronize, Backend, CPU, copyto!, isgpu, partition
 using KernelAbstractions: zeros as KAzeros
 using Unitful: @u_str, ustrip
 using UnitfulAtomic: auconvert
@@ -30,6 +30,7 @@ function mcmc(
     mcconfig, color_check_mat, colors = domain_decompose(mcconfig)
 
     x_lattice, y_lattice = mcconfig.lattice_size
+    lattice_size_tuple = (x_lattice, y_lattice)
     n_type = length(mcconfig.magmom_vector)
     n_pair = size(mcconfig.interact_coeff_array, 3)
     atom_size_tuple = (n_type, x_lattice, y_lattice)
@@ -48,18 +49,49 @@ function mcmc(
     copyto!(backend, magnetic_field, mcconfig.magnetic_field)
     temperature = mcconfig.temperature
 
+    # redefine kernel functions
+    if isgpu(backend)
+        rand_states_kernel_with_backend! = rand_states_kernel!(backend, (32, 32), lattice_size_tuple)
+        try_flip_kernel_with_backend! = try_flip_kernel!(backend, (32, 32), lattice_size_tuple)
+    else
+        rand_states_kernel_with_backend! = rand_states_kernel!(backend, (1024, ), lattice_size_tuple)
+        try_flip_kernel_with_backend! = try_flip_kernel!(backend, (1024, ), lattice_size_tuple)
+    end
+    rand_states!(states_array) = rand_states_kernel_with_backend!(
+        states_array,
+        ndrange=lattice_size_tuple
+    )
+    try_flip!(x...) = try_flip_kernel_with_backend!(
+        x...,
+        ndrange=lattice_size_tuple
+    )
+
+    # for different atom type
+    check_mat_vec = [
+        begin
+            checkmat_backend = KAzeros(backend, Bool, lattice_size_tuple...)
+            checkmat = zeros(Bool, lattice_size_tuple...)
+            checkmat[:, :] .= (color_check_mat .== color)
+            copyto!(backend, checkmat_backend, checkmat)
+            checkmat_backend
+        end
+        for color in colors
+    ]
+    type_idx_vec = [
+        pair_mat[1, :] .== idx_t
+        for idx_t = 1:n_type
+    ]
+    pair_mat_type_vec = [
+        pair_mat[:, type_idx]
+        for type_idx in type_idx_vec
+    ]
+    interact_coeff_array_type_vec = [
+        interact_coeff_array[:, :, type_idx]
+        for type_idx in type_idx_vec
+    ]
+
     # init magnetic texture
     rand_states!(states_array)
-    check_array_vec = [
-        begin
-            checkarray_backend = KAzeros(backend, Bool, atom_size_tuple...)
-            checkarray = zeros(Bool, atom_size_tuple...)
-            checkarray[atom_type, :, :] .= (color_check_mat .== color)
-            copyto!(backend, checkarray_backend, checkarray)
-            checkarray_backend
-        end
-        for color in colors for atom_type = 1:n_type
-    ]
 
     # loop over different environments
     norm_mean_mag_over_env = zeros(T, env_num)
@@ -78,18 +110,21 @@ function mcmc(
         for _ = 1:mcconfig.equilibration_step_num
             rand_states!(rand_states_array)
             synchronize(backend)
-            for check_array in check_array_vec
-                try_flip!(
-                    states_array,
-                    rand_states_array,
-                    pair_mat,
-                    interact_coeff_array,
-                    check_array,
-                    magmom_vector,
-                    mag,
-                    temp
-                )
-                synchronize(backend)
+            for idx_t = 1:n_type
+                for check_mat in check_mat_vec
+                    try_flip!(
+                        states_array,
+                        rand_states_array,
+                        pair_mat_type_vec[idx_t],
+                        interact_coeff_array_type_vec[idx_t],
+                        check_mat,
+                        idx_t,
+                        magmom_vector,
+                        mag,
+                        temp
+                    )
+                    synchronize(backend)
+                end
             end
 
             next!(p)
@@ -105,18 +140,21 @@ function mcmc(
         for idx_measure = 1:mcconfig.measuring_step_num
             rand_states!(rand_states_array)
             synchronize(backend)
-            for check_array in check_array_vec
-                try_flip!(
-                    states_array,
-                    rand_states_array,
-                    pair_mat,
-                    interact_coeff_array,
-                    check_array,
-                    magmom_vector,
-                    mag,
-                    temp
-                )
-                synchronize(backend)
+            for idx_t = 1:n_type
+                for check_mat in check_mat_vec
+                    try_flip!(
+                        states_array,
+                        rand_states_array,
+                        pair_mat_type_vec[idx_t],
+                        interact_coeff_array_type_vec[idx_t],
+                        check_mat,
+                        idx_t,
+                        magmom_vector,
+                        mag,
+                        temp
+                    )
+                    synchronize(backend)
+                end
             end
 
             norm_mean_mag_vec[idx_measure] = get_norm_mean_mag(states_array)
