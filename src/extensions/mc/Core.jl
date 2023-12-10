@@ -24,7 +24,8 @@ export mcmc
 function mcmc(
     mcconfig::MCConfig{T};
     backend::Backend=CPU(),
-    progress_enabled::Bool=true
+    progress_enabled::Bool=true,
+    log_enabled::Bool=true
 ) where {T}
     # domain decomposition might change the lattice size
     mcconfig, color_check_mat, colors = domain_decompose(mcconfig)
@@ -101,7 +102,7 @@ function mcmc(
     env_idx = 1
     for mag in eachcol(magnetic_field), temp in temperature
         temp_kelvin_str = @sprintf("%.4f", ustrip(auconvert(u"K", temp)))
-        @info "Start equilibration progress under $(temp_kelvin_str) K."
+        log_enabled && @info "Start equilibration progress under $(temp_kelvin_str) K."
         p = Progress(
             mcconfig.equilibration_step_num;
             showspeed=true,
@@ -129,7 +130,7 @@ function mcmc(
 
             next!(p)
         end
-        @info "Start mearsuring progress under $(temp_kelvin_str) K."
+        log_enabled && @info "Start mearsuring progress under $(temp_kelvin_str) K."
         p = Progress(
             mcconfig.measuring_step_num;
             showspeed=true,
