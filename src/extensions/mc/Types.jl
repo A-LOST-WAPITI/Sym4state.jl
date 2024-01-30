@@ -16,7 +16,7 @@ export MCConfig
     interact_coeff_array::Array{T, 3}
     # parameters for environment
     temperature::Vector{T}      = zeros(eltype(magmom_vector), 1)
-    magnetic_field::VecOrMat{T} = zeros(eltype(magmom_vector), 3)
+    magnetic_field::Array{T} = zeros(eltype(magmom_vector), 3)
     # parameters for monte carlo
     equilibration_step_num::Int = 100_000
     measuring_step_num::Int     = 100_000

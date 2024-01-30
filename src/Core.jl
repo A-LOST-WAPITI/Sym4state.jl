@@ -148,7 +148,7 @@ module ModCore
             max_supercell=max_supercell
         )
 
-        mv("POSCAR", "POSCAR_bak"; force=true)
+        isfile("POSCAR") && mv("POSCAR", "POSCAR_bak", force=true)
         py_struc.make_supercell(supercell_size)
         py_struc.to("POSCAR")
         @info "The supercell has been dumped into \"POSCAR\"."
