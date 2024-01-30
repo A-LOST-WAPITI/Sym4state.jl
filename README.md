@@ -1,7 +1,5 @@
 # Sym4state
 
----
-
 _A program specifically designed to simplify the computation of magnetic interaction matrix and simulate spin textures under various environmental conditions._
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://a-lost-wapiti.github.io/Sym4state.jl/stable/)
