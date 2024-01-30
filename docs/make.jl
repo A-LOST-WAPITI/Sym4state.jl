@@ -1,5 +1,7 @@
-using Sym4state
+using Pkg
+Pkg.activate("../")
 using Documenter
+import Sym4state
 
 DocMeta.setdocmeta!(Sym4state, :DocTestSetup, :(using Sym4state); recursive=true)
 
@@ -15,7 +17,10 @@ makedocs(;
         assets=String[],
     ),
     pages=[
-        "Home" => "index.md",
+        "Home" => "home.md",
+        "Types" => "types.md",
+        "Utilities" => "utils.md",
+        "API" => "index.md"
     ],
 )
 

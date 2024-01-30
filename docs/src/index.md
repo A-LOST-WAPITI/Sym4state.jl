@@ -2,13 +2,9 @@
 CurrentModule = Sym4state
 ```
 
-# Sym4state
+# API
 
-Documentation for [Sym4state](https://github.com/a-lost-wapiti/Sym4state.jl).
+All APIs from [Sym4state](https://github.com/a-lost-wapiti/Sym4state.jl).
 
 ```@index
-```
-
-```@autodocs
-Modules = [Sym4state]
 ```

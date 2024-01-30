@@ -172,8 +172,8 @@ module ModCore
         sym_op_vec::AbstractVector{SymOp},
         pair_ds::DisjointSets,
         pair_relation_dict::Dict;
-        atol=1e-2,
-        s_value=1.0
+        atol::Float64=1e-2,
+        s_value::Float64=1.0
     )
         rotation_sym_flag = false
         for sym_op in sym_op_vec
