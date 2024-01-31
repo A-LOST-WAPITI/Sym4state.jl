@@ -1,5 +1,3 @@
-using Pkg
-Pkg.activate("../")
 using Documenter
 import Sym4state
 
