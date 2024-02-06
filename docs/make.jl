@@ -13,9 +13,13 @@ makedocs(;
         canonical="https://a-lost-wapiti.github.io/Sym4state.jl",
         edit_link="main",
         assets=String[],
+        mathengine = MathJax3(Dict(
+            :loader => Dict("load" => ["[tex]/mhchem"]),
+        ))
     ),
     pages=[
         "Home" => "home.md",
+        "Manual" => "manual.md",
         "Types" => "types.md",
         "Utilities" => "utils.md",
         "API" => "index.md"
