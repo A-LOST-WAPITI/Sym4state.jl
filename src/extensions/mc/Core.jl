@@ -18,7 +18,7 @@ using ..MCUtils
 using ..MCFlip
 
 
-export mcmc
+export mcmc, CPU
 
 
 function mcmc(

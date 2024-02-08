@@ -4,6 +4,11 @@
 CurrentModule = Sym4state.ModCore
 ```
 
+```@setup pre_and_post
+using PrintFileTree
+local pair_mat, coeff_array
+```
+
 For the theoretical exploration of the magnetic properties of magnets, the bilinear Heisenberg model proves to be a useful framework for representing magnetic interactions, which can be described by
 
 ```math
@@ -39,7 +44,7 @@ Direct
 
 and the proper setted INCAR, POTCAR and KPOINTS for making SCF calculation, one can simply using `Sym4state.jl` to generate all the input files for calculating the nearest exchange interaction and the single-ion anisotropy interaction as follows:
 
-```@example
+```@example pre_and_post
 using Sym4state
 cd("CrI3") do   # hide
 Sym4state.pre_process(
@@ -56,10 +61,11 @@ This function will utilize the [`supercell_check`](@ref) method to create a supe
 
 Within the 5 Å cutoff radius, the monolayer of ``\ce{CrI3}`` exhibits two distinct groups of interactions. The first group corresponds to interactions between nearest neighbors, whereas the second group pertains to interactions arising from single-ion anisotropy. It is important to note that all atom pairs within the same group are considered equivalent. This equivalence implies the existence of symmetric operations that can transform one interaction matrix into another, highlighting the underlying symmetry of the system.
 
-The function above will create lots of directories storing input files for different magnetic configurations.
+As evidenced by the output obtained from the `pre_process` function, the initial group contains 6 pairs that are equivalent, while the second group consists of 2 equivalent pairs. Despite the potential for simplifying the calculations involving various interaction matrices through the use of symmetric operations, there remains one particular interaction matrix that necessitates the calculation of the fewest number of configurations. In the case of the nearest neighbor interaction, it is essential to compute the energies for a minimum of 9 magnetic configurations. Conversely, when dealing with the single-ion anisotropy interaction, the energies of at least 2 magnetic configurations need to be evaluated.
 
-```@example
-using PrintFileTree # hide
+The function will restore all the relations between different energies and configurations into a file `cal.jld2`. Moreover, this function will generate numerous directories to store input files corresponding to the various magnetic configurations.
+
+```@example pre_and_post
 printfiletree("CrI3")   # hide
 ```
 
@@ -69,7 +75,7 @@ All the path of those directories is stored in the file `cal_list`, one could us
 #!/bin/sh
 
 #SBATCH -n 144
-#SBATCH --array=1-2%2
+#SBATCH --array=1-11%2
 
 module load vasp-6.3.2-optcell
 
@@ -80,11 +86,90 @@ cd ${target_dir}
 srun vasp_ncl
 ```
 
+This shell script aims to create a Slurm job array to compute the energies of all 11 magnetic configurations, while efficiently managing computational resources by allowing a maximum of 2 jobs to run simultaneously.
+
 ## Post-process
 
-## Module
+Once all the calculations have converged, you can utilize the `post_process` function to extract the energies associated with different configurations. This process ultimately leads to the construction of an interaction matrix.
 
-```@docs
+```@example pre_and_post
+cd("CrI3") do   # hide
+global pair_mat, coeff_array    # hide
+run(`tar -xvzf oszicar.tar.gz`) # hide
+for (idx, dir_name) in enumerate(readlines("cal_dir_list")) # hide
+    cp("oszicar/OSZICAR_$(idx)", dir_name * "OSZICAR")  # hide
+end # hide
+pair_mat, coeff_array = Sym4state.post_process("./cal.jld2")
+end # hide
+```
+
+We can examine the dimensions of `pair_mat` and `coeff_array`, which store the indices of the starting and ending points for various atom pairs and their corresponding interaction matrices, respectively.
+
+```@repl pre_and_post
+size(pair_mat)
+size(coeff_array)
+```
+
+Hence, we observe that there exist a total of 8 interactions within a cutoff radius of 5 Å. Let us inspect a specific entry in `pair_mat` that contains the indices representing an atom pair:
+
+```@repl pre_and_post
+pair_mat[:, 1]
+```
+
+The initial and final numbers correspond to the indices of the starting and ending point atoms, respectively. The second and third numbers indicate the offset of the primitive cell along the x-axis and y-axis.
+
+## Monte Carlo Simulation
+
+With the former result `pair_mat` and `coeff_array`, we could set up a configuration for Monte Carlo simulation to determining the phase transition temperature or magnetic texture like:
+
+```@repl pre_and_post
+using Unitful, UnitfulAtomic
+mcconfig = Sym4state.MC.MCConfig{Float32}(
+    lattice_size=[128, 128],
+    magmom_vector=[3.5, 3.5],
+    pair_mat=pair_mat,
+    interact_coeff_array=coeff_array,
+    temperature=collect(150:-2:0) * u"K" .|> austrip,
+    magnetic_field=zeros(3),
+    equilibration_step_num=100_000,
+    measuring_step_num=100_000
+)
+```
+
+In the aforementioned code snippet, we have configured a simulated annealing simulation, commencing at a temperature of 150 K and progressively reducing it to 0 K in steps of 2 K. The simulation operates on a ``128 \times 128`` supercell of ``\ce{CrI3}`` using the previously computed interaction matrix. To assess the system, we perform a preliminary equilibration phase consisting of ``100000`` sweeps, followed by a measurement phase comprising ``100000`` sweeps for acquiring physical quantities. It is worth noting that the magnetic field is absent, rendering the `magmom_vector` inconsequential.
+
+With the created `mcconfig`, one can initiate a Monte Carlo simulation as follows:
+
+```julia
+(
+    states_over_env,
+    norm_mean_mag_over_env,
+    susceptibility_over_env,
+    specific_heat_over_env
+) = Sym4state.MC.mcmc(
+    mcconfig,
+    backend=Sym4state.MC.CPU()
+    progress_enabled=false,
+    log_enabled=false
+)
+```
+
+The parameter `backend` can be configured to employ `CUDABackend()` provided by [`CUDA.jl`](https://github.com/JuliaGPU/CUDA.jl) or any other backends supported by [`KernelAbstractions.jl`](https://github.com/JuliaGPU/KernelAbstractions.jl) to enhance performance utilizing the GPU.
+
+The `MCConfig` can also be stored into a `.toml` file by:
+
+```@example pre_and_post
+cd("CrI3") do   # hide
+Sym4state.MC.save_config("CrI3.toml", mcconfig)
+end # hide
+```
+
+or it can also be restored by:
+
+```@example pre_and_post
+cd("CrI3") do   # hide
+mcconfig = Sym4state.MC.load_config("CrI3.toml")
+end # hide
 ```
 
 ## Functions

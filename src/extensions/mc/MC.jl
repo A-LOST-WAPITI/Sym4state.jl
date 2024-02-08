@@ -11,5 +11,5 @@ module MC
     using .MCCore
 
 
-    export MCConfig, load_config, save_config, mcmc
+    export MCConfig, load_config, save_config, mcmc, CPU
 end
