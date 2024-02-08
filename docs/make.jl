@@ -18,15 +18,15 @@ makedocs(;
         ))
     ),
     pages=[
-        "Home" => "home.md",
+        "Home" => "index.md",
         "Manual" => "manual.md",
         "Types" => "types.md",
         "Utilities" => "utils.md",
-        "API" => "index.md"
+        "API" => "api.md"
     ],
 )
 
 deploydocs(;
-    repo="github.com/A-LOST-WAPITI/Sym4state.jl",
+    repo="github.com/a-lost-wapiti/Sym4state.jl",
     devbranch="main",
 )
