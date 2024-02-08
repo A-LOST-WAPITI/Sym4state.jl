@@ -57,7 +57,7 @@ end # hide
 
 This function will utilize the [`supercell_check`](@ref) method to create a supercell for the provided structure. The supercell should be sufficiently large to ensure that no more than one connection exists within a specified cutoff radius between any two atoms. For the given case of a monolayer of ``\ce{CrI3}`` with a cutoff radius of 5 Å, a ``2 \times 2 \times 1`` supercell will provide sufficient size. The supercell diagram below labels all the ``\ce{Cr}`` atoms:
 
-![Top view of monolayer ``\ce{CrI3}``](figs/CONTCAR.png)
+![Top view of monolayer ``\ce{CrI3}``](figs/CONTCAR.webp)
 
 Within the 5 Å cutoff radius, the monolayer of ``\ce{CrI3}`` exhibits two distinct groups of interactions. The first group corresponds to interactions between nearest neighbors, whereas the second group pertains to interactions arising from single-ion anisotropy. It is important to note that all atom pairs within the same group are considered equivalent. This equivalence implies the existence of symmetric operations that can transform one interaction matrix into another, highlighting the underlying symmetry of the system.
 
