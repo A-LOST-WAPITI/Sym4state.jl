@@ -27,6 +27,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/a-lost-wapiti/Sym4state.jl",
+    repo="github.com/A-LOST-WAPITI/Sym4state.jl",
     devbranch="main",
 )
