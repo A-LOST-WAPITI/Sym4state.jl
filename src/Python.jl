@@ -1,32 +1,36 @@
 module Python
-    using PythonCall
 
 
-    export pyconvert, PyList, pylist, Py
-    export py_Struc, py_Incar, py_Outcar, py_Sga, py_np
+using PythonCall
 
 
-    const py_Struc = PythonCall.pynew()
-    const py_Incar = PythonCall.pynew()
-    const py_Sga = PythonCall.pynew()
-    const py_np = PythonCall.pynew()
+export pyconvert, PyList, pylist, Py
+export py_Struc, py_Incar, py_Outcar, py_Sga, py_np
 
-    function __init__()
-        PythonCall.pycopy!(
-            py_Struc,
-            pyimport("pymatgen.core").Structure
-        )
-        PythonCall.pycopy!(
-            py_Incar,
-            pyimport("pymatgen.io.vasp.inputs").Incar
-        )
-        PythonCall.pycopy!(
-            py_Sga,
-            pyimport("pymatgen.symmetry.analyzer").SpacegroupAnalyzer
-        )
-        PythonCall.pycopy!(
-            py_np,
-            pyimport("numpy")
-        )
-    end
+
+const py_Struc = PythonCall.pynew()
+const py_Incar = PythonCall.pynew()
+const py_Sga = PythonCall.pynew()
+const py_np = PythonCall.pynew()
+
+function __init__()
+    PythonCall.pycopy!(
+        py_Struc,
+        pyimport("pymatgen.core").Structure
+    )
+    PythonCall.pycopy!(
+        py_Incar,
+        pyimport("pymatgen.io.vasp.inputs").Incar
+    )
+    PythonCall.pycopy!(
+        py_Sga,
+        pyimport("pymatgen.symmetry.analyzer").SpacegroupAnalyzer
+    )
+    PythonCall.pycopy!(
+        py_np,
+        pyimport("numpy")
+    )
+end
+
+
 end
