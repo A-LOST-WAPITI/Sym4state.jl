@@ -592,7 +592,7 @@ This function computes the interaction matrix utilizing the provided [`Map`](@re
 
 $(TYPEDSIGNATURES)
 """
-function get_coeff_mat(map::Map, energy_vec::Vector{Float64})
+function get_coeff_mat(map::Map, energy_vec::Dict{Int8, Float64})
     coeff_mat = zeros(3, 3)
     for i = 1:3, j = 1:3
         map_vec = map.map_mat[i, j]
