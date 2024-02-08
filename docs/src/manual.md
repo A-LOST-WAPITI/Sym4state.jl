@@ -95,6 +95,7 @@ Once all the calculations have converged, you can utilize the `post_process` fun
 ```@example pre_and_post
 cd("CrI3") do   # hide
 global pair_mat, coeff_array    # hide
+mv("../oszicar.tar.gz", "./oszicar.tar.gz") # hide
 run(`tar -xvzf oszicar.tar.gz`) # hide
 for (idx, dir_name) in enumerate(readlines("cal_dir_list")) # hide
     cp("oszicar/OSZICAR_$(idx)", dir_name * "OSZICAR")  # hide
