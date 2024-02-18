@@ -1,6 +1,6 @@
 module MCUtils
     using LazySets: convex_hull
-    using DataStructures: DisjointSets, union!, find_root
+    using DataStructures: DisjointSets, union!, find_root!
     using LinearAlgebra: norm, cross
     using ..MCTypes
 
@@ -60,7 +60,7 @@ module MCUtils
         end
 
         check_mat = [
-            check_dsu.intmap[find_root(check_dsu, idx)]
+            check_dsu.intmap[find_root!(check_dsu, idx)]
             for idx in idx_mat
         ]
         colors = unique(check_mat)
