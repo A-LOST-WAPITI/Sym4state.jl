@@ -178,6 +178,8 @@ end # hide
 ```@docs
 reduce_interact_mat_for_a_pair
 supercell_check
+pre_process
+post_process
 ```
 
 ```@eval
