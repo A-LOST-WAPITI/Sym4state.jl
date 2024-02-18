@@ -1,6 +1,5 @@
 @testset "CrI3 four-state method" begin
-    cd("CrI3/")
-    py_struc = Sym4state.Python.py_Struc.from_file("./POSCAR")
+    py_struc = Sym4state.Python.py_Struc.from_file("CrI3/POSCAR")
     # load pymatgen and read POSCAR
     @test length(py_struc) == 8
     # get reduce resultes
@@ -14,5 +13,4 @@
     @test length(map_vec) == 2
     @test length(map_vec[1].struc_vec) == 9
     @test length(map_vec[2].struc_vec) == 2
-    cd("..")
 end
