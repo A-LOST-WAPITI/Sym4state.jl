@@ -16,7 +16,7 @@ And add the package by:
 ```julia
 julia> import Pkg
 
-julia> Pkg.add("https://github.com/A-LOST-WAPITI/Sym4state.jl")
+julia> Pkg.add(url="https://github.com/A-LOST-WAPITI/Sym4state.jl")
 ```
 
 ## Brief overview
