@@ -135,7 +135,8 @@ function sym4state(
     symprec=1e-2,
     angle_tolerance=5.0,
     max_supercell=10,
-    s_value=1.0
+    s_value=1.0,
+    dump_supercell=true
 ) where T
     py_sga = py_Sga(
         py_struc,
@@ -161,10 +162,12 @@ function sym4state(
         max_supercell=max_supercell
     )
 
-    isfile("POSCAR") && mv("POSCAR", "POSCAR_bak", force=true)
-    py_struc.make_supercell(supercell_size)
-    py_struc.to("POSCAR")
-    @info "The supercell has been dumped into \"POSCAR\"."
+    if dump_supercell
+        isfile("POSCAR") && mv("POSCAR", "POSCAR_bak", force=true)
+        py_struc.make_supercell(supercell_size)
+        py_struc.to("POSCAR")
+        @info "The supercell has been dumped into \"POSCAR\"."
+    end
 
     sym4state(
         raw_struc,
