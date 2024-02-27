@@ -64,7 +64,8 @@ function save_config(filepath::String, mcconfig::MCConfig)
         "magnetic_field"=> ustrip.(auconvert.(u"T", mcconfig.magnetic_field)),
         # Monte Carlo
         "equilibration_step_num"=> mcconfig.equilibration_step_num,
-        "measuring_step_num"    => mcconfig.measuring_step_num
+        "measuring_step_num"    => mcconfig.measuring_step_num,
+        "decorrelation_step_num"=> mcconfig.decorrelation_step_num
     )
 
     open(filepath, "w") do io
@@ -113,6 +114,7 @@ function load_config(filepath::String, T::Type=Float32)
     # get optional mcmethod parameters
     equilibration_step_num::Int = get(config, "equilibration_step_num", 100_000)
     measuring_step_num::Int = get(config, "measuring_step_num", 100_000)
+    decorrelation_step_num::Int = get(config, "decorrelation_step_num", 10)
 
     mcconfig = MCConfig(
         mcconfig,
@@ -123,7 +125,8 @@ function load_config(filepath::String, T::Type=Float32)
         magnetic_field=magnetic_field,
         # update Monte Carlo parameters
         equilibration_step_num=equilibration_step_num,
-        measuring_step_num=measuring_step_num
+        measuring_step_num=measuring_step_num,
+        decorrelation_step_num=decorrelation_step_num
     )
 
     return mcconfig

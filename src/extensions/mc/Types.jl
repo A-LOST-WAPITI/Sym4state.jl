@@ -19,7 +19,8 @@ export MCConfig
     magnetic_field::Array{T} = zeros(eltype(magmom_vector), 3)
     # parameters for monte carlo
     equilibration_step_num::Int = 100_000
-    measuring_step_num::Int     = 100_000
+    measuring_step_num::Int     = 10_000
+    decorrelation_step_num::Int = 10
 
     # dimension check when construct
     MCConfig{T}(
@@ -30,7 +31,8 @@ export MCConfig
         temperature,
         magnetic_field,
         equilibration_step_num,
-        measuring_step_num
+        measuring_step_num,
+        decorrelation_step_num
     ) where {T} = begin
         @argcheck size(pair_mat, 2) == size(interact_coeff_array, 3) DimensionMismatch
 
@@ -42,7 +44,8 @@ export MCConfig
             temperature,
             magnetic_field,
             equilibration_step_num,
-            measuring_step_num
+            measuring_step_num,
+            decorrelation_step_num
         )
     end
 

@@ -113,4 +113,5 @@ magnetic_field = [0.0, 0.0, 0.0]
 
 # Monte Carlo
 equilibration_step_num = 100000
-measuring_step_num = 100000
+measuring_step_num = 10000
+decorrelation_step_num = 10

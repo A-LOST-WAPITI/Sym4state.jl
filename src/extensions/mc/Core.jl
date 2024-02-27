@@ -7,7 +7,7 @@ using KernelAbstractions: zeros as KAzeros
 using Unitful: @u_str, ustrip
 using UnitfulAtomic: auconvert
 using LinearAlgebra: norm
-using Statistics: mean
+using Statistics: mean, var
 using Printf: @sprintf
 using LoggingExtras
 using Dates
@@ -36,6 +36,7 @@ function mcmc(
     n_type = length(mcconfig.magmom_vector)
     n_pair = size(mcconfig.interact_coeff_array, 3)
     atom_size_tuple = (n_type, x_lattice, y_lattice)
+    atom_num = prod(atom_size_tuple)
     env_num = length(mcconfig.temperature) * size(mcconfig.magnetic_field, 2)
 
     states_array = KAzeros(backend, T, 3, atom_size_tuple...)
@@ -143,24 +144,26 @@ function mcmc(
         norm_mean_mag_vec = zeros(T, mcconfig.measuring_step_num)
         mean_energy_vec = zeros(T, mcconfig.measuring_step_num)
         for idx_measure = 1:mcconfig.measuring_step_num
-            if iszero(rand((0, 1)))
-                # for detailed balance https://doi.org/10.1016/j.physa.2013.08.059
-                reverse!(subset_list)
-            end
-            for (idx_t, color_idx) in subset_list
-                try_flip!(
-                    states_array,
-                    raw_energy_array,
-                    pair_mat_type_vec[idx_t],
-                    interact_coeff_array_type_vec[idx_t],
-                    color_idx,
-                    idx_t,
-                    magmom_vector,
-                    mag,
-                    temp
-                )
-                synchronize(backend)
-            end
+			for _ = 1:mcconfig.decorrelation_step_num
+                if iszero(rand((0, 1)))
+                    # for detailed balance https://doi.org/10.1016/j.physa.2013.08.059
+                    reverse!(subset_list)
+                end
+                for (idx_t, color_idx) in subset_list
+                    try_flip!(
+                        states_array,
+                        raw_energy_array,
+                        pair_mat_type_vec[idx_t],
+                        interact_coeff_array_type_vec[idx_t],
+                        color_idx,
+                        idx_t,
+                        magmom_vector,
+                        mag,
+                        temp
+                    )
+                    synchronize(backend)
+                end
+			end
 
             norm_mean_mag_vec[idx_measure] = norm(mean(states_array, dims=(2, 3, 4)))
             mean_energy_vec[idx_measure] = mean(raw_energy_array) / 2
@@ -169,8 +172,13 @@ function mcmc(
         end
 
         norm_mean_mag = mean(norm_mean_mag_vec)
-        susceptibility = (mean(norm_mean_mag_vec.^2) - mean(norm_mean_mag_vec)^2)/ temp
-        specific_heat = (mean(mean_energy_vec.^2) - mean(mean_energy_vec)^2) / temp^2
+        susceptibility = var(norm_mean_mag_vec; corrected=false) / temp
+        specific_heat = var(mean_energy_vec; corrected=false) / temp^2
+        @info @sprintf(
+            "|m| = %-10.4g Chi = %-10.4g C_v = %-10.4g",
+            norm_mean_mag, susceptibility, specific_heat
+        )
+        println()
 
         norm_mean_mag_over_env[env_idx] = norm_mean_mag
         susceptibility_over_env[env_idx] = susceptibility
