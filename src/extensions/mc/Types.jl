@@ -3,9 +3,14 @@ module MCTypes
 
 using Parameters
 using ArgCheck
+using Unitful: @u_str, ustrip
+using UnitfulAtomic: auconvert, austrip
 
 
 export MCConfig
+
+
+const MU_B::Rational{Int} = 1//2
 
 
 @with_kw struct MCConfig{T<:Real}
@@ -36,13 +41,18 @@ export MCConfig
     ) where {T} = begin
         @argcheck size(pair_mat, 2) == size(interact_coeff_array, 3) DimensionMismatch
 
+        # turn parameters into atomic unit
+        au_interact_coeff_array = @. austrip(auconvert(interact_coeff_array * u"meV"))
+        au_temperature = @. austrip(auconvert(temperature * u"K"))
+        au_magnetic_field = @. austrip(auconvert(MU_B * magnetic_field * u"T"))
+
         new(
             lattice_size,
             magmom_vector,
             pair_mat,
-            interact_coeff_array,
-            temperature,
-            magnetic_field,
+            au_interact_coeff_array,
+            au_temperature,
+            au_magnetic_field,
             equilibration_step_num,
             measuring_step_num,
             decorrelation_step_num
