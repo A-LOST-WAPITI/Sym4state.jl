@@ -16,6 +16,7 @@ using Dates
 using ..MCTypes
 using ..MCUtils
 using ..MCFlip
+using ..TopoQ
 
 
 export mcmc, CPU
@@ -39,6 +40,7 @@ function mcmc(
     atom_num = prod(atom_size_tuple)
     env_num = length(mcconfig.temperature) * size(mcconfig.magnetic_field, 2)
 
+    # [(s_x, s_y, s_z), sites_in_primitive_cell, n_x, n_y]
     states_array = KAzeros(backend, T, 3, atom_size_tuple...)
     raw_energy_array = KAzeros(backend, T, atom_size_tuple...)
     interact_coeff_array = KAzeros(backend, T, 3, 3, n_pair)
@@ -143,6 +145,7 @@ function mcmc(
         )
         norm_mean_mag_vec = zeros(T, mcconfig.measuring_step_num)
         mean_energy_vec = zeros(T, mcconfig.measuring_step_num)
+        topo_q_mat = zeros(T, n_type, mcconfig.measuring_step_num)
         for idx_measure = 1:mcconfig.measuring_step_num
 			for _ = 1:mcconfig.decorrelation_step_num
                 if iszero(rand((0, 1)))
@@ -167,17 +170,19 @@ function mcmc(
 
             norm_mean_mag_vec[idx_measure] = norm(mean(states_array, dims=(2, 3, 4)))
             mean_energy_vec[idx_measure] = mean(raw_energy_array) / 2
+            topo_q_mat[:, idx_measure] = Array(q_value(states_array))
 
             next!(p)
         end
 
         norm_mean_mag = mean(norm_mean_mag_vec)
+        mean_topo_q_vec = mean(topo_q_mat, dims=2)
         susceptibility = var(norm_mean_mag_vec; corrected=false) / temp
         specific_heat = var(mean_energy_vec; corrected=false) / temp^2
         @info @sprintf(
-            "|m| = %-10.4g Chi = %-10.4g C_v = %-10.4g",
-            norm_mean_mag, susceptibility, specific_heat
-        )
+            "Temp = %s K: |m| = %-10.4g Chi = %-10.4g C_v = %-10.4g ",
+            temp_kelvin_str, norm_mean_mag, susceptibility, specific_heat
+        ) * "Q = [" * prod(x -> @sprintf("%-10.4g", x), mean_topo_q_vec) * "]"
         println()
 
         norm_mean_mag_over_env[env_idx] = norm_mean_mag

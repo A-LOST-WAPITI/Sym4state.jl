@@ -14,9 +14,6 @@ using ..MCUtils
 export load_config, save_config
 
 
-const MU_B::Rational{Int} = 1//2
-
-
 function print_array_to_vec_recursion(io::IO, x, blanks=0; no_comma_at_end=true)
     dims = ndims(x)
     prefix = "    "^blanks
@@ -88,7 +85,6 @@ function load_config(filepath::String, T::Type=Float32)
     magmom_vector::Vector{T} = config["magmom_vector"]
     pair_mat::Array{Int} = vec_to_array_recursion(config["pair_mat"])
     interact_coeff_array::Array{T} = vec_to_array_recursion(config["interact_coeff_array"])
-    interact_coeff_array = @. interact_coeff_array * u"meV" |> auconvert |> austrip
 
     # using parameters to construct a `MCConfig`
     mcconfig = MCConfig(
@@ -107,9 +103,7 @@ function load_config(filepath::String, T::Type=Float32)
         @argcheck length(temperature) == 2 "The start and stop points should be given in `temperature` if `temperature_step` is not zero."
         temperature = temperature[1]:temperature_step:temperature[2] |> collect
     end
-    temperature = @. temperature * u"K" |> auconvert |> austrip
-    magnetic_field::VecOrMat{T} = MU_B * get(config, "magnetic_field", zeros(T, 3)) .|> T
-    magnetic_field = @. magnetic_field * u"T" |> auconvert |> austrip |> T
+    magnetic_field::VecOrMat{T} = get(config, "magnetic_field", zeros(T, 3)) .|> T
 
     # get optional mcmethod parameters
     equilibration_step_num::Int = get(config, "equilibration_step_num", 100_000)
