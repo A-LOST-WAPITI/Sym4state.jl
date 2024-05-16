@@ -314,7 +314,7 @@ function equal_pair(
     cutoff_radius::Float64,
     sym_op_vec::Vector{SymOp};
     atol=1e-2
-)::Tuple{Bool, Union{Nothing, DisjointSets}, Dict{Vector{Int}, SymOp}}
+)::Tuple{Bool, Union{Nothing, DisjointSets}, Union{Nothing, Dict{Vector{Int}, SymOp}}}
     # check whether unitcell is large enough
     unitcell_check_flag = check_unit_cell(mag_struc.lattice_mat, cutoff_radius)
     if !unitcell_check_flag

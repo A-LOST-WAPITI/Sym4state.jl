@@ -3,6 +3,7 @@ module MC
     include("Utils.jl")
     include("External.jl")
     include("Flip.jl")
+    include("TopoQ.jl")
     include("Core.jl")
 
 
