@@ -4,6 +4,7 @@ module MC
     include("External.jl")
     include("Flip.jl")
     include("Core.jl")
+    include("Plot.jl")
 
 
     using .MCTypes
@@ -11,5 +12,5 @@ module MC
     using .MCCore
 
 
-    export MCConfig, load_config, save_config, mcmc, CPU
+    export MCConfig, load_config, save_config, mcmc, CPU, plot
 end
