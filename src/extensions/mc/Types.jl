@@ -58,16 +58,6 @@ const MU_B::Rational{Int} = 1//2
             decorrelation_step_num
         )
     end
-
-    MCConfig{T}(
-        magmom_vector,
-        pair_mat,
-        interact_coeff_array
-    ) where {T} = MCConfig{T}(
-        magmom_vector=magmom_vector,
-        pair_mat=pair_mat,
-        interact_coeff_array=interact_coeff_array
-    )
 end
 # Outer constructor for not given type specifically
 MCConfig(
