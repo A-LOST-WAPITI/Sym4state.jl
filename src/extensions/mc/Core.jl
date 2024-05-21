@@ -33,7 +33,7 @@ function mcmc(
 
     x_lattice, y_lattice = mcconfig.lattice_size
     lattice_size_tuple = (x_lattice, y_lattice)
-    color_idx_len = prod(lattice_size_tuple)/length(colors) |> Int
+    color_idx_len = prod(lattice_size_tuple) / length(colors) |> Int
     n_type = length(mcconfig.magmom_vector)
     n_pair = size(mcconfig.interact_coeff_array, 3)
     atom_size_tuple = (n_type, x_lattice, y_lattice)
@@ -100,6 +100,7 @@ function mcmc(
     norm_mean_mag_over_env = zeros(T, env_num)
     susceptibility_over_env = zeros(T, env_num)
     specific_heat_over_env = zeros(T, env_num)
+    mean_topo_q_vec_over_env = zeros(T, n_type, env_num)
     states_over_env = KAzeros(backend, T, 3, atom_size_tuple..., env_num)
     env_idx = 1
     subset_list = [
@@ -177,7 +178,11 @@ function mcmc(
 
         norm_mean_mag = mean(norm_mean_mag_vec)
         mean_topo_q_vec = mean(topo_q_mat, dims=2)
-        susceptibility = var(norm_mean_mag_vec; corrected=false) / temp
+        susceptibility = var(
+            norm_mean_mag_vec;
+            mean=norm_mean_mag,
+            corrected=false
+        ) / temp
         specific_heat = var(mean_energy_vec; corrected=false) / temp^2
         @info @sprintf(
             "Temp = %s K: |m| = %-10.4g Chi = %-10.4g C_v = %-10.4g ",
@@ -188,6 +193,7 @@ function mcmc(
         norm_mean_mag_over_env[env_idx] = norm_mean_mag
         susceptibility_over_env[env_idx] = susceptibility
         specific_heat_over_env[env_idx] = specific_heat
+        mean_topo_q_vec_over_env[:, env_idx] .= mean_topo_q_vec
         states_over_env[:, :, :, :, env_idx] .= states_array
         env_idx += 1
     end
@@ -195,7 +201,7 @@ function mcmc(
     # download date from device to host
     states_over_env = Array(states_over_env)
 
-    return states_over_env, norm_mean_mag_over_env, susceptibility_over_env, specific_heat_over_env
+    return states_over_env, norm_mean_mag_over_env, susceptibility_over_env, specific_heat_over_env, mean_topo_q_vec_over_env
 end
 
 

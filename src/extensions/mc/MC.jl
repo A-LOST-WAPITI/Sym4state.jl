@@ -11,6 +11,7 @@ module MC
     using .MCTypes
     using .MCExternal
     using .MCCore
+    using .MCPlot
 
 
     export MCConfig, load_config, save_config, mcmc, CPU, plot

@@ -86,13 +86,6 @@ function load_config(filepath::String, T::Type=Float32)
     pair_mat::Array{Int} = vec_to_array_recursion(config["pair_mat"])
     interact_coeff_array::Array{T} = vec_to_array_recursion(config["interact_coeff_array"])
 
-    # using parameters to construct a `MCConfig`
-    mcconfig = MCConfig(
-        magmom_vector,
-        pair_mat,
-        interact_coeff_array
-    )
-
     # get optional lattice parameters
     lattice_size::Vector{Int} = get(config, "lattice_size", [128, 128])
 
@@ -111,13 +104,15 @@ function load_config(filepath::String, T::Type=Float32)
     decorrelation_step_num::Int = get(config, "decorrelation_step_num", 10)
 
     mcconfig = MCConfig(
-        mcconfig,
-        # update lattice parameters
+        # lattice parameters
         lattice_size=lattice_size,
-        # update environment parameters
+        magmom_vector=magmom_vector,
+        pair_mat=pair_mat,
+        interact_coeff_array=interact_coeff_array,
+        # environment parameters
         temperature=temperature,
         magnetic_field=magnetic_field,
-        # update Monte Carlo parameters
+        # Monte Carlo parameters
         equilibration_step_num=equilibration_step_num,
         measuring_step_num=measuring_step_num,
         decorrelation_step_num=decorrelation_step_num
