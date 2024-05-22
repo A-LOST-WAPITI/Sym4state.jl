@@ -73,7 +73,7 @@ function plot(
     )
     resize_to_layout!(fig)
 
-    return f
+    return fig
 end
 
 

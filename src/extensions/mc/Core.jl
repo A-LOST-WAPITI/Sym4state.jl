@@ -178,11 +178,7 @@ function mcmc(
 
         norm_mean_mag = mean(norm_mean_mag_vec)
         mean_topo_q_vec = mean(topo_q_mat, dims=2)
-        susceptibility = var(
-            norm_mean_mag_vec;
-            mean=norm_mean_mag,
-            corrected=false
-        ) / temp
+        susceptibility = var(norm_mean_mag_vec; corrected=false) / temp
         specific_heat = var(mean_energy_vec; corrected=false) / temp^2
         @info @sprintf(
             "Temp = %s K: |m| = %-10.4g Chi = %-10.4g C_v = %-10.4g ",
