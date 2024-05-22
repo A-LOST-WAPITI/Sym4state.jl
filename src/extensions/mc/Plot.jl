@@ -4,6 +4,7 @@ module MCPlot
 using LinearAlgebra
 using Makie
 using ColorSchemes
+using Printf: @sprintf
 
 
 export plot
@@ -50,20 +51,27 @@ function plot(
         append!(z_vec, z_vec_temp)
     end
 
-    f = Figure(fontsize=fontsize)
-    ax = Axis(f[1, 1], aspect=DataAspect())
+    fig = Figure(fontsize=20, backgroundcolor=:transparent)
+    ax = Axis(fig[1, 1], aspect=DataAspect(), backgroundcolor=:transparent)
+    hidedecorations!(ax)
     arrows!(
         ax,
         ps, ns,
         color=z_vec .|> (x -> get(ColorSchemes.bwr, (x + 1)/2)),
         linewidth=0.2, lengthscale=0.3f0, arrowsize=Vec3f(0.4, 0.4, 0.6),
-        align=:head
+        align=:center
     )
     Colorbar(
-        f[1, 2],
+        fig[1, 2],
         limits=(-1, 1),
-        colormap=:bwr
+        size=25,
+        colormap=:bwr,
+        ticklabelsize=18,
+        tickformat=(X -> X .|> x -> @sprintf("%5.1f", x)),
+        ticklabelalign=(:left, :center),
+        height=@lift Fixed($(pixelarea(ax.scene)).widths[2])
     )
+    resize_to_layout!(fig)
 
     return f
 end
