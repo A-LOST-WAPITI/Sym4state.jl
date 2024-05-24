@@ -1,5 +1,5 @@
 # Lattice
-size = [24, 24]
+lattice_size = [24, 24]
 magmom_vector = [2.00]
 pair_mat = [
     # NNN

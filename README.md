@@ -70,3 +70,18 @@ mcconfig = Sym4state.MC.MCConfig{Float32}(
     backend=CUDABackend()
 )
 ```
+
+After the Monte Carlo simulation, one can illustrate the ultimate magnetic configuration simpily by:
+
+```julia
+using CairoMakie
+fig = Sym4state.MC.plot(
+    states_over_env[:, :, :, :, end],
+    Float32[1 -1/2; 0 sqrt(3)/2],
+    Float32[1/3 2/3; 2/3 1/3],
+    1:24,
+    1:24
+)
+```
+
+It is important to note that the 2D cell matrix, the fractional coordinates of the magnetic atoms, and the desired plotting range of cells along the x- and y-axes must be supplied as inputs to this function.
