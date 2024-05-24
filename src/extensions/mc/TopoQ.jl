@@ -1,9 +1,10 @@
 module TopoQ
 
 
-using KernelAbstractions: @kernel, @index, @uniform, @localmem, @groupsize, @print, get_backend
+using KernelAbstractions: @kernel, @index, @uniform, @localmem, @groupsize, @print, get_backend, isgpu
 using KernelAbstractions.Extras: @unroll
 using KernelAbstractions: zeros as KAzeros
+using ..MCUtils
 
 
 export q_value
@@ -58,8 +59,10 @@ function q_value(states_array::AbstractArray{T, 4}) where T
     backend = get_backend(states_array)
     q_density_array = KAzeros(backend, T, size(states_array)[2:end])
 
-    kernel = q_density_kernel!(backend, 32, size(q_density_array))
-    kernel(q_density_array, states_array, ndrange=size(q_density_array))
+    ndrange = size(q_density_array)
+    groupsize = isgpu(backend) ? (32, ) : (1024, )
+    kernel = q_density_kernel!(backend, groupsize, ndrange)
+    kernel(q_density_array, states_array, ndrange=ndrange)
 
     # Q for different sub-lattices
     q_value_vec = sum(q_density_array, dims=(2, 3)) / (4 * pi)

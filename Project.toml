@@ -1,7 +1,7 @@
 name = "Sym4state"
 uuid = "cd7f132b-9dd9-4a60-9028-a6299a42be40"
 authors = ["Guolin Wan <glwan@iphy.ac.cn> and contributors"]
-version = "0.1.0"
+version = "0.1.2"
 
 [deps]
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"
@@ -9,7 +9,6 @@ CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 CellListMap = "69e1c6dd-3888-40e6-b3c8-31ac5f578864"
 ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 CondaPkg = "992eb4ea-22a4-4c89-a5bb-47a3300528ab"
-Cthulhu = "f68482b8-f384-11e8-15f7-abe071a5a75f"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
@@ -19,6 +18,7 @@ FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 InvertedIndices = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
+LLVM = "929cbde3-209d-540e-8aea-75f648917ca0"
 LazySets = "b4f0291d-fe17-52bc-9479-3d1a343d9043"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LoggingExtras = "e6f89c97-d47a-5376-807f-9c37f3926c36"
@@ -38,4 +38,5 @@ Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 UnitfulAtomic = "a7773ee8-282e-5fa2-be4e-bd808c38a91a"
 
 [compat]
+LLVM = "6"
 julia = ">= 1.9"
