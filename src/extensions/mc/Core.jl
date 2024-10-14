@@ -29,7 +29,7 @@ function mcmc(
     log_enabled::Bool=true
 ) where {T}
     # domain decomposition might change the lattice size
-    mcconfig, color_check_mat, colors = domain_decompose(mcconfig)
+    color_check_mat, colors = domain_decompose!(mcconfig)
 
     x_lattice, y_lattice = mcconfig.lattice_size
     lattice_size_tuple = (x_lattice, y_lattice)

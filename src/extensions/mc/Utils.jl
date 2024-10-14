@@ -5,10 +5,10 @@ module MCUtils
     using ..MCTypes
 
 
-    export domain_decompose
+    export domain_decompose!
 
 
-    function domain_decompose(mcconfig::MCConfig)
+    function domain_decompose!(mcconfig::MCConfig)
         pair_mat = mcconfig.pair_mat
         hull_points = convex_hull(
             eachcol(pair_mat[2:3, :]) .|> Vector |> vec
@@ -25,10 +25,7 @@ module MCUtils
         if size_fix_flag
             x_lattice = len_fix(mcconfig.lattice_size[1], hull_area)
             y_lattice = len_fix(mcconfig.lattice_size[2], hull_area)
-            mcconfig = MCConfig(
-                mcconfig,
-                lattice_size = [x_lattice, y_lattice]
-            )
+            mcconfig.lattice_size = [x_lattice, y_lattice]
             @info "Size of the lattice has been fixed to $(x_lattice)x$(y_lattice)."
         else
             x_lattice, y_lattice = mcconfig.lattice_size

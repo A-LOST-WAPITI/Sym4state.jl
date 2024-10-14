@@ -13,7 +13,7 @@ export MCConfig
 const MU_B::Rational{Int} = 1//2
 
 
-@with_kw struct MCConfig{T<:Real}
+@with_kw mutable struct MCConfig{T<:Real}
     # parameters for lattice
     lattice_size::Vector{Int}   = [128, 128]
     magmom_vector::Vector{T}
