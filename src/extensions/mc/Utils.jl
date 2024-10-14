@@ -38,7 +38,7 @@ module MCUtils
         ]
         color_check_mat, colors = color_check(x_lattice, y_lattice, equal_points_idx)
 
-        return mcconfig, color_check_mat, colors
+        return color_check_mat, colors
     end
 
     function color_check(x_lattice, y_lattice, equal_points_idx)
