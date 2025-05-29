@@ -27,6 +27,7 @@ Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 PeriodicTable = "7b2266bf-644c-5ea3-82d8-af4bbd25a884"
 PhysicalConstants = "5ad8b20f-a522-5ce9-bfc9-ddf1d5bda6ab"
+PrintFileTree = "083f6447-9a71-585a-bc2e-c0ad124fd6e4"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
@@ -38,4 +39,5 @@ Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 UnitfulAtomic = "a7773ee8-282e-5fa2-be4e-bd808c38a91a"
 
 [compat]
+PrintFileTree = "0.2.0"
 julia = ">= 1.9"
