@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Manual · Sym4state.jl</title><meta name="title" content="Manual · Sym4state.jl"/><meta property="og:title" content="Manual · Sym4state.jl"/><meta property="twitter:title" content="Manual · Sym4state.jl"/><meta name="description" content="Documentation for Sym4state.jl."/><meta property="og:description" content="Documentation for Sym4state.jl."/><meta property="twitter:description" content="Documentation for Sym4state.jl."/><meta property="og:url" content="https://a-lost-wapiti.github.io/Sym4state.jl/manual/"/><meta property="twitter:url" content="https://a-lost-wapiti.github.io/Sym4state.jl/manual/"/><link rel="canonical" href="https://a-lost-wapiti.github.io/Sym4state.jl/manual/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">Sym4state.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li class="is-active"><a class="tocitem" href>Manual</a><ul class="internal"><li><a class="tocitem" href="#Pre-process"><span>Pre-process</span></a></li><li><a class="tocitem" href="#Post-process"><span>Post-process</span></a></li><li><a class="tocitem" href="#Monte-Carlo-Simulation"><span>Monte Carlo Simulation</span></a></li><li><a class="tocitem" href="#Functions"><span>Functions</span></a></li></ul></li><li><a class="tocitem" href="../types/">Types</a></li><li><a class="tocitem" href="../utils/">Utilities</a></li><li><a class="tocitem" href="../api/">API</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Manual</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Manual</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/a-lost-wapiti/Sym4state.jl/blob/main/docs/src/manual.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Manual"><a class="docs-heading-anchor" href="#Manual">Manual</a><a id="Manual-1"></a><a class="docs-heading-anchor-permalink" href="#Manual" title="Permalink"></a></h1><p>For the theoretical exploration of the magnetic properties of magnets, the bilinear Heisenberg model proves to be a useful framework for representing magnetic interactions, which can be described by</p><p class="math-container">\[\mathcal{H} = \sum_{i &lt; j} S_i \cdot \mathcal{J}_{i j} \cdot S_j + \sum_{i} S_i \cdot \mathcal{A} \cdot S_i - m \sum_{i} S_i \cdot \vec{B}\]</p><p>where the symbol <span>$\mathcal{J}_{ij}$</span> denotes the exchange interaction matrix between two spins, <span>$S_i$</span> and <span>$S_j$</span>, the matrix <span>$\mathcal{A}$</span> represents the single-ion anisotropy. To determine the magnetic interaction matrix elements, researchers often employ the four-state method <sup class="footnote-reference"><a id="citeref-1" href="#footnote-1">[1]</a></sup> <sup class="footnote-reference"><a id="citeref-2" href="#footnote-2">[2]</a></sup> <sup class="footnote-reference"><a id="citeref-3" href="#footnote-3">[3]</a></sup>. This method involves calculating the energies of four distinct magnetic configurations, allowing the extraction of individual components for the exchange matrix.</p><p>Extending this method to each element of the exchange matrix requires calculating a total of 36 energies to obtain the complete matrix. It should be noted that some energies are degenerate due to the symmetry of the material. Nonetheless, performing a manual symmetric analysis to streamline the number of energy calculations remains a challenging endeavor, as there exists a potential risk of omitting or misinterpreting certain symmetric operations.</p><h2 id="Pre-process"><a class="docs-heading-anchor" href="#Pre-process">Pre-process</a><a id="Pre-process-1"></a><a class="docs-heading-anchor-permalink" href="#Pre-process" title="Permalink"></a></h2><p>One can use our program to streamline the simpilifing and calculating process easily. For example, with a POSCAR file of monolayer <span>$\ce{CrI3}$</span></p><pre><code class="language-raw hljs">Cr2 I6                                  
+   1.00000000000000     
+     7.1131374882967124    0.0000000000000000    0.0000000000000000
+    -3.5565687441483571    6.1601577654763897    0.0000000000000000
+     0.0000000000000000    0.0000000000000000   18.0635365764484419
+   Cr   I 
+     2     6
+Direct
+  0.6666666666666643  0.3333333333333357  0.5000000247180765
+  0.3333333333333357  0.6666666666666643  0.5000000501683317
+  0.6415738047516142  0.9999977877949036  0.4116659127023310
+  0.3584239830432894  0.3584261952483858  0.4116659127023310
+  0.0000022122051035  0.6415760169567106  0.4116659127023310
+  0.3584241488090230  0.9999980859273947  0.5883340783387269
+  0.6415739371183646  0.6415758511909699  0.5883340783387269
+  0.0000019140726053  0.3584260628816354  0.5883340783387269</code></pre><p>and the proper setted INCAR, POTCAR and KPOINTS for making SCF calculation, one can simply using <code>Sym4state.jl</code> to generate all the input files for calculating the nearest exchange interaction and the single-ion anisotropy interaction as follows:</p><pre><code class="language-julia hljs">using Sym4state
+Sym4state.pre_process(
+    &quot;./POSCAR&quot;,
+    [24],   # Take Cr element as magnetic
+    5.0     # There exists an interaction between atoms within a distance of 5 Å.
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>There are 2 atoms taken as magnetic in the given primitive cell.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>The space group number of given structure is 162 with given `symprec`
+sys:1: DeprecationWarning: dict interface is deprecated. Use attribute interface instead
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[2, 2, 1] supercell is large enough.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>The supercell has been dumped into &quot;POSCAR&quot;.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>There are 2 different type(s) of pairs.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>For the 1th group, equivalent pairs are shown as follows:
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[1, 5] &lt;=&gt; [1, 7]
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[1, 5] &lt;=&gt; [1, 6]
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[1, 5] &lt;=&gt; [1, 5]
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[1, 5] &lt;=&gt; [6, 2]
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[1, 5] &lt;=&gt; [6, 1]
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[1, 5] &lt;=&gt; [6, 4]
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>For the 2th group, equivalent pairs are shown as follows:
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[1, 1] &lt;=&gt; [1, 1]
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[1, 1] &lt;=&gt; [6, 6]
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>For the 1th group:
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Find pair [1, 7] with higher symmetry!
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>The number of energies now is 21.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Find pair [1, 5] with higher symmetry!
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>The number of energies now is 9.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>For the 2th group:
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Find pair [1, 1] with higher symmetry!
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>The number of energies now is 2.
+
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saving the reduced map and relations into &quot;cal.jld2&quot;...
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>RWIGS of Cr is set to 1.39.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>RWIGS of I is set to 1.39.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Storing path to different configuration into `cal_dir_list`. One may use SLURM&#39;s job array to calculate.</code></pre><p>This function will utilize the <a href="#Sym4state.ModCore.supercell_check"><code>supercell_check</code></a> method to create a supercell for the provided structure. The supercell should be sufficiently large to ensure that no more than one connection exists within a specified cutoff radius between any two atoms. For the given case of a monolayer of <span>$\ce{CrI3}$</span> with a cutoff radius of 5 Å, a <span>$2 \times 2 \times 1$</span> supercell will provide sufficient size. The supercell diagram below labels all the <span>$\ce{Cr}$</span> atoms:</p><p><img src="../figs/CONTCAR.webp" alt="Top view of monolayer ``\\ce{CrI3}``"/></p><p>Within the 5 Å cutoff radius, the monolayer of <span>$\ce{CrI3}$</span> exhibits two distinct groups of interactions. The first group corresponds to interactions between nearest neighbors, whereas the second group pertains to interactions arising from single-ion anisotropy. It is important to note that all atom pairs within the same group are considered equivalent. This equivalence implies the existence of symmetric operations that can transform one interaction matrix into another, highlighting the underlying symmetry of the system.</p><p>As evidenced by the output obtained from the <code>pre_process</code> function, the initial group contains 6 pairs that are equivalent, while the second group consists of 2 equivalent pairs. Despite the potential for simplifying the calculations involving various interaction matrices through the use of symmetric operations, there remains one particular interaction matrix that necessitates the calculation of the fewest number of configurations. In the case of the nearest neighbor interaction, it is essential to compute the energies for a minimum of 9 magnetic configurations. Conversely, when dealing with the single-ion anisotropy interaction, the energies of at least 2 magnetic configurations need to be evaluated.</p><p>The function will restore all the relations between different energies and configurations into a file <code>cal.jld2</code>. Moreover, this function will generate numerous directories to store input files corresponding to the various magnetic configurations.</p><pre class="documenter-example-output"><code class="nohighlight hljs ansi">CrI3
+├── INCAR
+├── KPOINTS
+├── POSCAR
+├── POSCAR_bak
+├── POTCAR
+├── cal
+│   ├── group_1
+│   │   ├── conf_1
+│   │   │   ├── INCAR
+│   │   │   ├── KPOINTS
+│   │   │   ├── POSCAR
+│   │   │   └── POTCAR
+│   │   ├── conf_2
+│   │   │   ├── INCAR
+│   │   │   ├── KPOINTS
+│   │   │   ├── POSCAR
+│   │   │   └── POTCAR
+│   │   ├── conf_3
+│   │   │   ├── INCAR
+│   │   │   ├── KPOINTS
+│   │   │   ├── POSCAR
+│   │   │   └── POTCAR
+│   │   ├── conf_4
+│   │   │   ├── INCAR
+│   │   │   ├── KPOINTS
+│   │   │   ├── POSCAR
+│   │   │   └── POTCAR
+│   │   ├── conf_5
+│   │   │   ├── INCAR
+│   │   │   ├── KPOINTS
+│   │   │   ├── POSCAR
+│   │   │   └── POTCAR
+│   │   ├── conf_6
+│   │   │   ├── INCAR
+│   │   │   ├── KPOINTS
+│   │   │   ├── POSCAR
+│   │   │   └── POTCAR
+│   │   ├── conf_7
+│   │   │   ├── INCAR
+│   │   │   ├── KPOINTS
+│   │   │   ├── POSCAR
+│   │   │   └── POTCAR
+│   │   ├── conf_8
+│   │   │   ├── INCAR
+│   │   │   ├── KPOINTS
+│   │   │   ├── POSCAR
+│   │   │   └── POTCAR
+│   │   └── conf_9
+│   │       ├── INCAR
+│   │       ├── KPOINTS
+│   │       ├── POSCAR
+│   │       └── POTCAR
+│   └── group_2
+│       ├── conf_1
+│       │   ├── INCAR
+│       │   ├── KPOINTS
+│       │   ├── POSCAR
+│       │   └── POTCAR
+│       └── conf_2
+│           ├── INCAR
+│           ├── KPOINTS
+│           ├── POSCAR
+│           └── POTCAR
+├── cal.jld2
+└── cal_dir_list
+
+14 directories, 51 files</code></pre><p>All the path of those directories is stored in the file <code>cal_list</code>, one could use this file to create a <a href="https://slurm.schedmd.com/">Slurm</a>&#39;s job array by submitting a shell like:</p><pre><code class="language-bash hljs">#!/bin/sh
+
+#SBATCH -n 144
+#SBATCH --array=1-11%2
+
+module load vasp-6.3.2-optcell
+
+target_dir=$(sed -n &quot;${SLURM_ARRAY_TASK_ID}p&quot; cal_dir_list)
+
+cd ${target_dir}
+
+srun vasp_ncl</code></pre><p>This shell script aims to create a Slurm job array to compute the energies of all 11 magnetic configurations, while efficiently managing computational resources by allowing a maximum of 2 jobs to run simultaneously.</p><h2 id="Post-process"><a class="docs-heading-anchor" href="#Post-process">Post-process</a><a id="Post-process-1"></a><a class="docs-heading-anchor-permalink" href="#Post-process" title="Permalink"></a></h2><p>Once all the calculations have converged, you can utilize the <code>post_process</code> function to extract the energies associated with different configurations. This process ultimately leads to the construction of an interaction matrix.</p><pre><code class="language-julia hljs">pair_mat, coeff_array = Sym4state.post_process(&quot;./cal.jld2&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">([1 1 … 1 2; 1 0 … 0 0; 0 -1 … 0 0; 2 2 … 1 2], [-11.343124999999421 1.4495100195857176 -1.0100000000020373; 1.4495100195857176 -9.669374999997672 -1.7493713156480946; -1.0100000000020373 -1.7493713156480946 -10.875;;; -11.343124999999421 -1.4495100195857176 -1.0100000000020373; -1.4495100195857176 -9.669374999997672 1.7493713156480946; -1.0100000000020373 1.7493713156480946 -10.875;;; -8.832499999996799 0.0 2.0200000000040745; 0.0 -12.180000000000291 0.0; 2.0200000000040745 0.0 -10.875;;; -8.832499999996799 0.0 2.0200000000040745; 0.0 -12.180000000000291 0.0; 2.0200000000040745 0.0 -10.875;;; -11.343124999999421 -1.4495100195857176 -1.0100000000020373; -1.4495100195857176 -9.669374999997672 1.7493713156480946; -1.0100000000020373 1.7493713156480946 -10.875;;; -11.343124999999421 1.4495100195857176 -1.0100000000020373; 1.4495100195857176 -9.669374999997672 -1.7493713156480946; -1.0100000000020373 -1.7493713156480946 -10.875;;; 0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 -0.17000000001280569;;; 0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 -0.17000000001280569])</code></pre><p>We can examine the dimensions of <code>pair_mat</code> and <code>coeff_array</code>, which store the indices of the starting and ending points for various atom pairs and their corresponding interaction matrices, respectively.</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; size(pair_mat)</code><code class="nohighlight hljs ansi" style="display:block;">(4, 8)</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; size(coeff_array)</code><code class="nohighlight hljs ansi" style="display:block;">(3, 3, 8)</code></pre><p>Hence, we observe that there exist a total of 8 interactions within a cutoff radius of 5 Å. Let us inspect a specific entry in <code>pair_mat</code> that contains the indices representing an atom pair:</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; pair_mat[:, 1]</code><code class="nohighlight hljs ansi" style="display:block;">4-element Vector{Int64}:
+ 1
+ 1
+ 0
+ 2</code></pre><p>The initial and final numbers correspond to the indices of the starting and ending point atoms, respectively. The second and third numbers indicate the offset of the primitive cell along the x-axis and y-axis.</p><h2 id="Monte-Carlo-Simulation"><a class="docs-heading-anchor" href="#Monte-Carlo-Simulation">Monte Carlo Simulation</a><a id="Monte-Carlo-Simulation-1"></a><a class="docs-heading-anchor-permalink" href="#Monte-Carlo-Simulation" title="Permalink"></a></h2><p>With the former result <code>pair_mat</code> and <code>coeff_array</code>, we could set up a configuration for Monte Carlo simulation to determining the phase transition temperature or magnetic texture like:</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; using Unitful, UnitfulAtomic</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; mcconfig = Sym4state.MC.MCConfig{Float32}(
+           lattice_size=[128, 128],
+           magmom_vector=[3.5, 3.5],
+           pair_mat=pair_mat,
+           interact_coeff_array=coeff_array,
+           temperature=collect(150:-2:0),
+           magnetic_field=zeros(3),
+           equilibration_step_num=100_000,
+           measuring_step_num=100_000
+       )</code><code class="nohighlight hljs ansi" style="display:block;">Sym4state.MC.MCTypes.MCConfig{Float32}
+  lattice_size: Array{Int64}((2,)) [128, 128]
+  magmom_vector: Array{Float32}((2,)) Float32[3.5, 3.5]
+  pair_mat: Array{Int64}((4, 8)) [1 1 … 1 2; 1 0 … 0 0; 0 -1 … 0 0; 2 2 … 1 2]
+  interact_coeff_array: Array{Float32}((3, 3, 8)) Float32[-0.00041685216 5.326851f-5 -3.7116817f-5; 5.326851f-5 -0.00035534299 -6.428821f-5; -3.7116817f-5 -6.428821f-5 -0.00039964888;;; -0.00041685216 -5.326851f-5 -3.7116817f-5; -5.326851f-5 -0.00035534299 6.428821f-5; -3.7116817f-5 6.428821f-5 -0.00039964888;;; -0.00032458839 0.0 7.4233634f-5; 0.0 -0.00044760676 0.0; 7.4233634f-5 0.0 -0.00039964888;;; -0.00032458839 0.0 7.4233634f-5; 0.0 -0.00044760676 0.0; 7.4233634f-5 0.0 -0.00039964888;;; -0.00041685216 -5.326851f-5 -3.7116817f-5; -5.326851f-5 -0.00035534299 6.428821f-5; -3.7116817f-5 6.428821f-5 -0.00039964888;;; -0.00041685216 5.326851f-5 -3.7116817f-5; 5.326851f-5 -0.00035534299 -6.428821f-5; -3.7116817f-5 -6.428821f-5 -0.00039964888;;; 0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 -6.2473846f-6;;; 0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 -6.2473846f-6]
+  temperature: Array{Float32}((76,)) Float32[0.00047502175, 0.00046868811, 0.00046235448, 0.00045602088, 0.00044968724, 0.0004433536, 0.00043702, 0.00043068637, 0.00042435274, 0.00041801913  …  5.700261f-5, 5.0668987f-5, 4.433536f-5, 3.8001737f-5, 3.1668114f-5, 2.5334493f-5, 1.9000869f-5, 1.2667247f-5, 6.3336233f-6, 0.0]
+  magnetic_field: Array{Float32}((3,)) Float32[0.0, 0.0, 0.0]
+  equilibration_step_num: Int64 100000
+  measuring_step_num: Int64 100000
+  decorrelation_step_num: Int64 10</code></pre><p>In the aforementioned code snippet, we have configured a simulated annealing simulation, commencing at a temperature of 150 K and progressively reducing it to 0 K in steps of 2 K. The simulation operates on a <span>$128 \times 128$</span> supercell of <span>$\ce{CrI3}$</span> using the previously computed interaction matrix. To assess the system, we perform a preliminary equilibration phase consisting of <span>$100000$</span> sweeps, followed by a measurement phase comprising <span>$100000$</span> sweeps for acquiring physical quantities. It is worth noting that the magnetic field is absent, rendering the <code>magmom_vector</code> inconsequential.</p><p>With the created <code>mcconfig</code>, one can initiate a Monte Carlo simulation as follows:</p><pre><code class="language-julia hljs">(
+    states_over_env,
+    norm_mean_mag_over_env,
+    susceptibility_over_env,
+    specific_heat_over_env
+) = Sym4state.MC.mcmc(
+    mcconfig,
+    backend=Sym4state.MC.CPU()
+    progress_enabled=false,
+    log_enabled=false
+)</code></pre><p>The parameter <code>backend</code> can be configured to employ <code>CUDABackend()</code> provided by <a href="https://github.com/JuliaGPU/CUDA.jl"><code>CUDA.jl</code></a> or any other backends supported by <a href="https://github.com/JuliaGPU/KernelAbstractions.jl"><code>KernelAbstractions.jl</code></a> to enhance performance utilizing the GPU.</p><p>The <code>MCConfig</code> can also be stored into a <code>.toml</code> file by:</p><pre><code class="language-julia hljs">Sym4state.MC.save_config(&quot;CrI3.toml&quot;, mcconfig)</code></pre><p>or it can also be restored by:</p><pre><code class="language-julia hljs">mcconfig = Sym4state.MC.load_config(&quot;CrI3.toml&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Sym4state.MC.MCTypes.MCConfig{Float32}
+  lattice_size: Array{Int64}((2,)) [128, 128]
+  magmom_vector: Array{Float32}((2,)) Float32[3.5, 3.5]
+  pair_mat: Array{Int64}((4, 8)) [1 1 … 1 2; 1 0 … 0 0; 0 -1 … 0 0; 2 2 … 1 2]
+  interact_coeff_array: Array{Float32}((3, 3, 8)) Float32[-0.0004168476 5.328652f-5 -3.7116813f-5; 5.328652f-5 -0.0003553292 -6.4274565f-5; -3.7116813f-5 -6.4274565f-5 -0.00039964888;;; -0.0004168476 -5.328652f-5 -3.7116813f-5; -5.328652f-5 -0.0003553292 6.4274565f-5; -3.7116813f-5 6.4274565f-5 -0.00039964888;;; -0.00032457 0.0 7.423363f-5; 0.0 -0.00044760676 0.0; 7.423363f-5 0.0 -0.00039964888;;; -0.00032457 0.0 7.423363f-5; 0.0 -0.00044760676 0.0; 7.423363f-5 0.0 -0.00039964888;;; -0.0004168476 -5.328652f-5 -3.7116813f-5; -5.328652f-5 -0.0003553292 6.4274565f-5; -3.7116813f-5 6.4274565f-5 -0.00039964888;;; -0.0004168476 5.328652f-5 -3.7116813f-5; 5.328652f-5 -0.0003553292 -6.4274565f-5; -3.7116813f-5 -6.4274565f-5 -0.00039964888;;; 0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 -6.247385f-6;;; 0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 -6.247385f-6]
+  temperature: Array{Float32}((76,)) Float32[0.00047502175, 0.00046868811, 0.00046235448, 0.00045602088, 0.00044968724, 0.0004433536, 0.00043702, 0.00043068637, 0.00042435274, 0.00041801913  …  5.700261f-5, 5.0668987f-5, 4.433536f-5, 3.8001737f-5, 3.1668114f-5, 2.5334493f-5, 1.9000869f-5, 1.2667247f-5, 6.3336233f-6, 0.0]
+  magnetic_field: Array{Float32}((3,)) Float32[0.0, 0.0, 0.0]
+  equilibration_step_num: Int64 100000
+  measuring_step_num: Int64 100000
+  decorrelation_step_num: Int64 10
+</code></pre><h2 id="Functions"><a class="docs-heading-anchor" href="#Functions">Functions</a><a id="Functions-1"></a><a class="docs-heading-anchor-permalink" href="#Functions" title="Permalink"></a></h2><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="Sym4state.ModCore.reduce_interact_mat_for_a_pair" href="#Sym4state.ModCore.reduce_interact_mat_for_a_pair"><code>Sym4state.ModCore.reduce_interact_mat_for_a_pair</code></a> — <span class="docstring-category">Function</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><p>This function employs all the given symmetric operations in sym<em>op</em>vec to identify the analogous connections among the provided magnetic configurations in mag<em>struc</em>vec. By doing so, it effectively reduces the total count of magnetic configurations required for calculating the interaction matrix between two atoms.</p><pre><code class="language-julia hljs">reduce_interact_mat_for_a_pair(
+    mag_struc_vec::Vector{Sym4state.Types.Struc},
+    sym_op_vec::Vector{Sym4state.Types.SymOp};
+    atol
+) -&gt; DataStructures.IntDisjointSets{Int64}
+</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/a-lost-wapiti/Sym4state.jl/blob/2eb60c00cd6361b91cf9695201343093f475d1d8/src/Core.jl#L15-L20">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="Sym4state.ModCore.supercell_check" href="#Sym4state.ModCore.supercell_check"><code>Sym4state.ModCore.supercell_check</code></a> — <span class="docstring-category">Function</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><p>This function checks whether the size of the supercell is big enough for the given <code>cutoff_radius</code>.</p><pre><code class="language-julia hljs">supercell_check(
+    py_refined_struc,
+    mag_num_vec,
+    mag_atom_count,
+    cutoff_radius;
+    symprec,
+    angle_tolerance,
+    max_supercell
+) -&gt; Tuple{Sym4state.Types.Struc, Any, Vector{Sym4state.Types.SymOp}, Union{Nothing, DataStructures.DisjointSets{Vector{Int64}}}, Union{Nothing, Dict{Vector{Int64}, Sym4state.Types.SymOp}}}
+</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/a-lost-wapiti/Sym4state.jl/blob/2eb60c00cd6361b91cf9695201343093f475d1d8/src/Core.jl#L70-L74">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="Sym4state.ModCore.pre_process" href="#Sym4state.ModCore.pre_process"><code>Sym4state.ModCore.pre_process</code></a> — <span class="docstring-category">Function</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><p>This function takes a file path, a magnetic number vector, a cutoff radius, and some optional parameters. It performs symmetry analysis on the structure in the file and saves the results into a file named &quot;cal.jld2&quot;. It also prepares the inputs for VASP.</p><pre><code class="language-julia hljs">pre_process(
+    filepath,
+    mag_num_vec,
+    cutoff_radius;
+    atol,
+    symprec,
+    angle_tolerance,
+    max_supercell,
+    s_value,
+    incar_path,
+    poscar_path,
+    potcar_path,
+    kpoints_path,
+    kwargs...
+)
+</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/a-lost-wapiti/Sym4state.jl/blob/2eb60c00cd6361b91cf9695201343093f475d1d8/src/Core.jl#L331-L337">source</a></section><section><div><p>This function takes a file path and some optional parameters. It loads the symmetry information from the file and prepares the inputs for VASP.</p><pre><code class="language-julia hljs">pre_process(
+    filepath;
+    incar_path,
+    poscar_path,
+    potcar_path,
+    kpoints_path,
+    kwargs...
+)
+</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/a-lost-wapiti/Sym4state.jl/blob/2eb60c00cd6361b91cf9695201343093f475d1d8/src/Core.jl#L392-L397">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="Sym4state.ModCore.post_process" href="#Sym4state.ModCore.post_process"><code>Sym4state.ModCore.post_process</code></a> — <span class="docstring-category">Function</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><p>This function takes a file path. It loads the symmetry information from the file and calculates a pair matrix and a coefficient array.</p><pre><code class="language-julia hljs">post_process(
+    cal_file_path::String
+) -&gt; Tuple{Matrix{Int64}, Array{Float64, 3}}
+</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/a-lost-wapiti/Sym4state.jl/blob/2eb60c00cd6361b91cf9695201343093f475d1d8/src/Core.jl#L424-L429">source</a></section></article><section class="footnotes is-size-7"><ul><li class="footnote" id="footnote-1"><a class="tag is-link" href="#citeref-1">1</a>Xiang, H. J., et al. &quot;Predicting the spin-lattice order of frustrated systems from first principles.&quot; Physical Review B 84.22 (2011): 224429.</li><li class="footnote" id="footnote-2"><a class="tag is-link" href="#citeref-2">2</a>Šabani, D., C. Bacaksiz, and M. V. Milošević. &quot;Ab initio methodology for magnetic exchange parameters: Generic four-state energy mapping onto a Heisenberg spin Hamiltonian.&quot; Physical Review B 102.1 (2020): 014457.</li><li class="footnote" id="footnote-3"><a class="tag is-link" href="#citeref-3">3</a>Xiang, Hongjun, et al. &quot;Magnetic properties and energy-mapping analysis.&quot; Dalton Transactions 42.4 (2013): 823-853.</li></ul></section></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../types/">Types »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Friday 30 May 2025 06:16">Friday 30 May 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
