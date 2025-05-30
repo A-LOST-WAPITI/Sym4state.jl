@@ -162,7 +162,7 @@ function sym4state(
     )
 
     # Get the refined structure
-    py_refined_struc = py_sga.get_refined_structure()
+    py_refined_struc = py_sga.get_primitive_standard_structure()
 
     # Get the atomic numbers
     py_num_vec = py_refined_struc.atomic_numbers
