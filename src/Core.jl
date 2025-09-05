@@ -92,9 +92,8 @@ function supercell_check(
         # Set supercell size
         supercell_size = [supercell_ratio, supercell_ratio, 1]
 
-        # Create a supercell and copy the refined structure
-        py_refined_supercell_struc = py_refined_struc.copy()
-        py_refined_supercell_struc.make_supercell(supercell_size)
+        # Create a supercell from the refined structure
+        py_refined_supercell_struc = py_refined_struc.make_supercell(supercell_size, in_place=false)
 
         # Create a symmetry analysis object for the supercell
         py_supercell_sga = py_Sga(
@@ -162,7 +161,7 @@ function sym4state(
     )
 
     # Get the refined structure
-    py_refined_struc = py_sga.get_primitive_standard_structure()
+    py_refined_struc = py_sga.get_refined_structure()
 
     # Get the atomic numbers
     py_num_vec = py_refined_struc.atomic_numbers
