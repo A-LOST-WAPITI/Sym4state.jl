@@ -18,8 +18,7 @@ function plot(
     cell_mat::AbstractMatrix{T},    # [2, 2]
     frac_coords_pos_mat::AbstractMatrix{T}, # [2, n_t]
     target_x_idx::IDX_TYPE,
-    target_y_idx::IDX_TYPE;
-    fontsize=20
+    target_y_idx::IDX_TYPE
 ) where T
     _, n_t, n_x, n_y = size(states_array)
     @assert size(cell_mat) == (2, 2)
@@ -54,11 +53,11 @@ function plot(
     fig = Figure(fontsize=20, backgroundcolor=:transparent)
     ax = Axis(fig[1, 1], aspect=DataAspect(), backgroundcolor=:transparent)
     hidedecorations!(ax)
-    arrows!(
+    arrows3d!(
         ax,
         ps, ns,
         color=z_vec .|> (x -> get(ColorSchemes.bwr, (x + 1)/2)),
-        linewidth=0.2, lengthscale=0.3f0, arrowsize=Vec3f(0.4, 0.4, 0.6),
+        lengthscale=1f0,
         align=:center
     )
     Colorbar(
