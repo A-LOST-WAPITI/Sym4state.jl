@@ -346,7 +346,11 @@ function equal_pair(
                 corresponding_dict,
                 pair_vec
             )
-            if pair_vec_after_op in consider_pair_vec_vec
+
+            possible_pair_vec = [pair_vec_after_op, reverse(pair_vec_after_op)]
+            # if the translation could swap two site, the 
+            # J matrix between a to b and b to a should be linked by transpose
+            if length(intersect(consider_pair_vec_vec, possible_pair_vec)) != 0
                 pair_relation_vec = vcat(
                     pair_vec,
                     pair_vec_after_op
@@ -672,10 +676,18 @@ function get_all_interact_coeff_under_sym(
             coeff_ref.pair_vec
         )
 
-        push!(
-            coeff_mat_vec,
-            coeff_ref.op * coeff_mat
-        )
+        # PBC introduced
+        if coeff_ref.op.trans_only
+            push!(
+                coeff_mat_vec,
+                permutedims(coeff_mat)
+            )
+        else
+            push!(
+                coeff_mat_vec,
+                coeff_ref.op * coeff_mat
+            )
+        end
     end
 
     pair_mat = stack(pair_vec_vec)
