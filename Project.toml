@@ -28,6 +28,7 @@ PrintFileTree = "083f6447-9a71-585a-bc2e-c0ad124fd6e4"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
@@ -40,8 +41,9 @@ CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 
 [compat]
 PrintFileTree = "0.2.0"
-julia = "1.10"
+Revise = "3.9.0"
 Statistics = "1"
+julia = "1.10"
 
 [extras]
 Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"

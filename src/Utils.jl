@@ -350,10 +350,11 @@ function equal_pair(
             possible_pair_vec = [pair_vec_after_op, reverse(pair_vec_after_op)]
             # if the translation could swap two site, the 
             # J matrix between a to b and b to a should be linked by transpose
-            if length(intersect(consider_pair_vec_vec, possible_pair_vec)) != 0
+            fallback_vec = intersect(consider_pair_vec_vec, possible_pair_vec)
+            if length(fallback_vec) != 0
                 pair_relation_vec = vcat(
                     pair_vec,
-                    pair_vec_after_op
+                    fallback_vec[1]
                 )
                 if haskey(pair_relation_dict, pair_relation_vec)
                     continue
@@ -362,7 +363,7 @@ function equal_pair(
                 union!(
                     pair_ds,
                     pair_vec,
-                    pair_vec_after_op
+                    fallback_vec[1]
                 )
                 pair_relation_dict[pair_relation_vec] = sym_op
             end
@@ -534,7 +535,7 @@ $(TYPEDSIGNATURES)
 function get_sym_op_vec(
     py_sga
 )::Vector{SymOp}
-    py_sym_dict = py_sga.get_symmetry_dataset()
+    py_sym_dataset = py_sga.get_symmetry_dataset()
 
     lattice_mat = permutedims(
         pyconvert(Array{Float64}, py_sga._structure.lattice.matrix),
@@ -542,11 +543,11 @@ function get_sym_op_vec(
     )
     inv_lattive_mat = inv(lattice_mat)
     rot_array = permutedims(
-        pyconvert(Array{Float64}, py_sym_dict["rotations"]),
+        pyconvert(Array{Float64}, py_sym_dataset.rotations),
         (2, 3, 1)
     )
     trans_mat = permutedims(
-        pyconvert(Array{Float64}, py_sym_dict["translations"]),
+        pyconvert(Array{Float64}, py_sym_dataset.translations),
         (2, 1)
     )
 
