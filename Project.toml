@@ -1,7 +1,7 @@
 name = "Sym4state"
 uuid = "cd7f132b-9dd9-4a60-9028-a6299a42be40"
 authors = ["Guolin Wan <glwan@iphy.ac.cn> and contributors"]
-version = "0.2.4"
+version = "0.3.0"
 
 [deps]
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"
