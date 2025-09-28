@@ -331,6 +331,11 @@ function equal_pair(
     pair_ds = DisjointSets(consider_pair_vec_vec)
     pair_relation_dict = Dict{AbstractVector{Int}, SymOp}()
     for sym_op in sym_op_vec
+        # skip time reversal symmetry for not having influence on J
+        if sym_op.time_rev
+            continue
+        end
+
         mag_struc_after_op = sym_op * mag_struc
 
         # without considering spin, those two structures should be approximate
