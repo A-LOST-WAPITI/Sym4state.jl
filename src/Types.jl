@@ -216,8 +216,6 @@ struct SymOp{T<:AbstractFloat}
     trans_vec::SVector{3, T}
     "The indicator flag to denote the propriety of the rotation."
     proper::Bool
-    "The indicator flag to denote whether only translation operation is performed"
-    trans_only::Bool
     "The indicator flag to denote the presence of a time reversal operation."
     time_rev::Bool
 end
@@ -260,7 +258,6 @@ function SymOp(
         spin_rot_mat,
         trans_vec,
         proper,
-        trans_only,
         time_rev
     )
 end
