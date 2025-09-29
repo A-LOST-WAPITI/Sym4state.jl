@@ -68,9 +68,9 @@ struct Atom{T<:AbstractFloat}
     spin::SVector{3, T}
 end
 
-function Base.isapprox(x::Atom{T}, y::Atom{T}; atol=T(1e-2)) where T
+function Base.isapprox(x::Atom{T}, y::Atom{T}; check_spin::Bool=true, atol=T(1e-2)) where T
     num_flag = (x.num == y.num)
-    spin_flag = isapprox(
+    spin_flag = !check_spin || isapprox(
         x.spin,
         y.spin,
         atol=atol
@@ -322,7 +322,7 @@ function Base.show(io::IO, ::MIME"text/plain", sym_op::SymOp)
             vec2str(sym_op.trans_vec)
     )
     ## Time reversal
-    time_rev = sym_op.time_rev > 0 ? "False" : "True"
+    time_rev = sym_op.time_rev ? "True" : "False"
     println(
         io,
         "Time reversal: " * time_rev

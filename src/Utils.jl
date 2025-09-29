@@ -180,14 +180,14 @@ as well as the corresponding relationships among the atoms in the respective str
 
 $(TYPEDSIGNATURES)
 """
-function struc_compare(x::Struc, y::Struc; atol=1e-2)::Tuple{Bool, Dict{Int, Int}}
+function struc_compare(x::Struc, y::Struc; check_spin::Bool=true, atol=1e-2)::Tuple{Bool, Dict{Int, Int}}
     approx_flag = true
 
     corresponding_dict = Dict{Int, Int}()
     for (one_atom_idx, one_atom) in enumerate(x)
         occur_flag = false
         for (another_atom_idx, another_atom) in enumerate(y)
-            if isapprox(one_atom, another_atom, atol=atol)
+            if isapprox(one_atom, another_atom, check_spin=check_spin, atol=atol)
                 occur_flag = true
                 # Operation will also change the index
                 # if atom i was moved to a position same as
@@ -342,8 +342,10 @@ function equal_pair(
         _, corresponding_dict = struc_compare(
             mag_struc,
             mag_struc_after_op,
+            check_spin=false,
             atol=atol
         )
+        @show corresponding_dict
 
         # find the pair after operation
         for pair_vec in consider_pair_vec_vec
