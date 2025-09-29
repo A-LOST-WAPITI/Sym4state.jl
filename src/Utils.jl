@@ -345,7 +345,6 @@ function equal_pair(
             check_spin=false,
             atol=atol
         )
-        @show corresponding_dict
 
         # find the pair after operation
         for pair_vec in consider_pair_vec_vec
