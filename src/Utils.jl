@@ -685,17 +685,15 @@ function get_all_interact_coeff_under_sym(
         )
 
         # PBC introduced
-        if coeff_ref.op.trans_only
-            push!(
-                coeff_mat_vec,
-                permutedims(coeff_mat)
-            )
-        else
-            push!(
-                coeff_mat_vec,
-                coeff_ref.op * coeff_mat
-            )
+        pbc_flag = !isapprox(coeff_mat.op.trans_vec, zeros(3); atol=1e-5)
+        coeff_mat_now = coeff_ref.op * coeff_mat
+        if pbc_flag
+            permutedims!(coeff_mat_now)
         end
+        push!(
+            coeff_mat_vec,
+            coeff_mat_now
+        )
     end
 
     pair_mat = stack(pair_vec_vec)

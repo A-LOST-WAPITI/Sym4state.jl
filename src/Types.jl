@@ -247,8 +247,6 @@ function SymOp(
     rot_mat = SMatrix{3, 3, T}(rot_mat)
     trans_vec = SVector{3, T}(trans_vec)
     proper::Bool = det(rot_mat) > 0
-    no_trans::Bool = isapprox(trans_vec, zeros(T, 3); atol=T(1e-5))
-    trans_only::Bool = isapprox(rot_mat, I(3); atol=T(1e-5)) && !no_trans && !time_rev
     spin_rot_mat = SMatrix{3, 3, T}(
         (
             time_rev ? -one(T) : one(T)
