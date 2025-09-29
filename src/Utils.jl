@@ -688,7 +688,7 @@ function get_all_interact_coeff_under_sym(
         pbc_flag = !isapprox(coeff_ref.op.trans_vec, zeros(3); atol=1e-5)
         coeff_mat_now = coeff_ref.op * coeff_mat
         if pbc_flag
-            permutedims!(coeff_mat_now)
+            coeff_mat_now = permutedims(coeff_mat_now)
         end
         push!(
             coeff_mat_vec,
