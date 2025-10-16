@@ -27,8 +27,8 @@ end
 
 
 @kernel inbounds=true function rand_states_kernel!(states_array)
-    idx = @index(Global, Cartesian)
     @uniform n_type = size(states_array, 2)
+    idx = @index(Global, Cartesian)
 
     for idx_t = 1:n_type
         rand_state!(@view states_array[:, idx_t, idx])

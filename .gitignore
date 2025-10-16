@@ -11,11 +11,8 @@
 ## CondaPkg.jl
 .CondaPkg
 
-## test
-test.jl
-
-## temp POSCAR
-POSCAR_*
+## debug
+debug/
 
 ## logfile
 *.log

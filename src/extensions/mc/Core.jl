@@ -165,9 +165,11 @@ function mcmc(
                 end
 			end
 
-            norm_mean_mag_vec[idx_measure] = norm(mean(states_array, dims=(2, 3, 4)))
-            mean_energy_vec[idx_measure] = mean(raw_energy_array) / 2
-            topo_q_mat[:, idx_measure] = Array(q_value(states_array))
+            # copy to cpu avoiding wrong result of |m|
+            states_array_cpu = states_array |> Array
+            norm_mean_mag_vec[idx_measure] = norm(mean(states_array_cpu, dims=(2, 3, 4)))
+            mean_energy_vec[idx_measure] = mean(raw_energy_array |> Array) / 2
+            topo_q_mat[:, idx_measure] = Array(q_value(states_array_cpu))
 
             next!(p)
         end
