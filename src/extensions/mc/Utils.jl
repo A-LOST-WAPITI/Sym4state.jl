@@ -1,6 +1,6 @@
 module MCUtils
     using LazySets: convex_hull
-    using DataStructures: DisjointSets, union!, find_root!
+    using DataStructures: DisjointSet, union!, find_root!
     using LinearAlgebra: norm, cross
     using ..MCTypes
 
@@ -44,7 +44,7 @@ module MCUtils
     function color_check(x_lattice, y_lattice, equal_points_idx)
         idx_mat = CartesianIndices((x_lattice, y_lattice))
 
-        check_dsu = DisjointSets{CartesianIndex{2}}(idx_mat)
+        check_dsu = DisjointSet{CartesianIndex{2}}(idx_mat)
         for center_idx in idx_mat
             idx_x, idx_y = center_idx.I
             for point_idx_diff in equal_points_idx

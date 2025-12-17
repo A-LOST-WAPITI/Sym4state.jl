@@ -14,7 +14,7 @@ using LinearAlgebra
 using DelimitedFiles
 using Printf
 using CellListMap: neighborlist
-using DataStructures: DisjointSets, find_root!, num_groups
+using DataStructures: DisjointSet, find_root!, num_groups
 using ..Types
 using ..Python
 
@@ -314,7 +314,7 @@ function equal_pair(
     cutoff_radius::Float64,
     sym_op_vec::Vector{SymOp};
     atol=1e-2
-)::Tuple{Bool, Union{Nothing, DisjointSets}, Union{Nothing, Dict{Vector{Int}, SymOp}}}
+)::Tuple{Bool, Union{Nothing, DisjointSet}, Union{Nothing, Dict{Vector{Int}, SymOp}}}
     # check whether unitcell is large enough
     unitcell_check_flag = check_unit_cell(mag_struc.lattice_mat, cutoff_radius)
     if !unitcell_check_flag
@@ -328,7 +328,7 @@ function equal_pair(
         return false, nothing, nothing
     end
 
-    pair_ds = DisjointSets(consider_pair_vec_vec)
+    pair_ds = DisjointSet(consider_pair_vec_vec)
     pair_relation_dict = Dict{AbstractVector{Int}, SymOp}()
     for sym_op in sym_op_vec
         # skip time reversal symmetry for not having influence on J
@@ -685,9 +685,8 @@ function get_all_interact_coeff_under_sym(
 
         # PBC introduced
         pbc_flag = !isapprox(coeff_ref.op.trans_vec, zeros(3); atol=1e-5)
-        coeff_mat_now = coeff_ref.op * (
-            pbc_flag ? permutedims(coeff_mat) : coeff_mat
-        )
+        coeff_mat_now = pbc_flag ? permutedims(coeff_ref.op * coeff_mat) : coeff_ref.op * coeff_mat
+
         push!(
             coeff_mat_vec,
             coeff_mat_now

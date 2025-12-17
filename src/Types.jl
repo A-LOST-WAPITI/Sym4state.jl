@@ -16,7 +16,7 @@ using LinearAlgebra
 using PeriodicTable
 using Printf
 using CellListMap
-using DataStructures: IntDisjointSets, find_root!
+using DataStructures: IntDisjointSet, find_root!
 
 
 export Struc, SymOp, Map, CoeffMatRef
@@ -352,7 +352,7 @@ A convenient approach to construct a new [`Map`](@ref) with essential parameters
 $(TYPEDSIGNATURES)
 """
 function Map(
-    fallback_ds::IntDisjointSets,
+    fallback_ds::IntDisjointSet,
     all_struc_vec::Vector{Struc};
     rotation_symmetry_flag=false
 )

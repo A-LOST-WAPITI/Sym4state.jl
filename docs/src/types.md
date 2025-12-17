@@ -31,7 +31,7 @@ SymOp(::AbstractMatrix)
 ```@docs
 Map
 Map(
-    fallback_ds::IntDisjointSets,
+    fallback_ds::IntDisjointSet,
     all_struc_vec::Vector{Struc};
     rotation_symmetry_flag=false
 )

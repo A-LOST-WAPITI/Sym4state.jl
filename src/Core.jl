@@ -3,7 +3,7 @@ module ModCore
 
 using DocStringExtensions
 using FileIO
-using DataStructures: DisjointSets, IntDisjointSets, union!, num_groups, find_root!
+using DataStructures: DisjointSet, IntDisjointSet, union!, num_groups, find_root!
 using LinearAlgebra: norm
 using ..Python
 using ..Utils
@@ -22,12 +22,12 @@ function reduce_interact_mat_for_a_pair(
     mag_struc_vec::Vector{Struc},
     sym_op_vec::Vector{SymOp};
     atol=1e-2
-)::IntDisjointSets{Int}
+)::IntDisjointSet{Int}
     mag_struc_count = length(mag_struc_vec)
     @assert mag_struc_count in [20, 36]
 
     unique_mag_struc_dict = Dict{Int, AbstractVector{Struc}}()
-    fallback_ds = IntDisjointSets(mag_struc_count)
+    fallback_ds = IntDisjointSet(mag_struc_count)
     for mag_struc in mag_struc_vec
         target_uni_num = mag_struc.uni_num
         occur_flag = false
@@ -214,7 +214,7 @@ function sym4state(
     supercell_size::AbstractVector{Int},  # Supercell size
     mag_num_vec::AbstractVector{Int},  # Magnetic number vector
     sym_op_vec::AbstractVector{SymOp},  # Symmetry operation vector
-    pair_ds::DisjointSets,  # Disjoint sets object
+    pair_ds::DisjointSet,  # Disjoint sets object
     pair_relation_dict::Dict;  # Dictionary
     atol::Float64=1e-2,  # Absolute tolerance
     s_value::Float64=1.0  # Spin value
@@ -295,6 +295,7 @@ function sym4state(
         end
 
         push!(map_vec, map)
+        @info "$(pair_relation_dict)"
         for (pair_vec, parent) in zip(pair_vec_vec, parents_vec)
             if parent != group_parent
                 continue
