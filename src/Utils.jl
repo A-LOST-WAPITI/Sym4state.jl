@@ -344,9 +344,9 @@ function equal_pair(
         # find the pair after operation
         for pair_vec in consider_pair_vec_vec
             # only consider the pair starts with center idx
-            if pair_vec[1] ∉ center_idx_vec
-                continue
-            end
+            # if pair_vec[1] ∉ center_idx_vec
+            #     continue
+            # end
 
             # get the corresponding pair after operation
             pair_vec_after_op = get_corresponding_pair_vec(
