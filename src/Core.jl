@@ -295,7 +295,6 @@ function sym4state(
         end
 
         push!(map_vec, map)
-        @info "$(pair_relation_dict)"
         for (pair_vec, parent) in zip(pair_vec_vec, parents_vec)
             if parent != group_parent
                 continue

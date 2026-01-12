@@ -260,7 +260,7 @@ function consider_pair_vec_in_radius(
     for pair in neighbor_list
         pair_vec = collect(pair[1:2])
         # given center idx is included
-        if pair_vec[1] in center_idx_vec
+        if length(intersect(pair_vec, center_idx_vec)) > 0
             push!(
                 consider_pair_vec_vec,
                 pair_vec
@@ -321,12 +321,7 @@ function equal_pair(
         return false, nothing, nothing
     end
 
-    consider_pair_vec_vec = consider_pair_vec_in_radius(mag_struc, center_idx_vec, cutoff_radius)
-
-    # there exists multiple pairs between center atom and one point atom
-    if length(unique(consider_pair_vec_vec)) != length(consider_pair_vec_vec)
-        return false, nothing, nothing
-    end
+    consider_pair_vec_vec = consider_pair_vec_in_radius(mag_struc, center_idx_vec, cutoff_radius) |> unique
 
     pair_ds = DisjointSet(consider_pair_vec_vec)
     pair_relation_dict = Dict{AbstractVector{Int}, SymOp}()
@@ -348,19 +343,22 @@ function equal_pair(
 
         # find the pair after operation
         for pair_vec in consider_pair_vec_vec
+            # only consider the pair starts with center idx
+            if pair_vec[1] ∉ center_idx_vec
+                continue
+            end
+
+            # get the corresponding pair after operation
             pair_vec_after_op = get_corresponding_pair_vec(
                 corresponding_dict,
                 pair_vec
             )
 
-            possible_pair_vec = [pair_vec_after_op, reverse(pair_vec_after_op)]
-            # if the translation could swap two site, the 
-            # J matrix between a to b and b to a should be linked by transpose
-            fallback_vec = intersect(consider_pair_vec_vec, possible_pair_vec)
-            if length(fallback_vec) != 0
+            # find the equivalent pair in original structure
+            if pair_vec_after_op in consider_pair_vec_vec
                 pair_relation_vec = vcat(
                     pair_vec,
-                    fallback_vec[1]
+                    pair_vec_after_op
                 )
                 if haskey(pair_relation_dict, pair_relation_vec)
                     continue
@@ -369,7 +367,7 @@ function equal_pair(
                 union!(
                     pair_ds,
                     pair_vec,
-                    fallback_vec[1]
+                    pair_vec_after_op
                 )
                 pair_relation_dict[pair_relation_vec] = sym_op
             end
