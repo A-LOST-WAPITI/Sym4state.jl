@@ -1,7 +1,7 @@
 name = "Sym4state"
 uuid = "cd7f132b-9dd9-4a60-9028-a6299a42be40"
-authors = ["Guolin Wan <glwan@iphy.ac.cn> and contributors"]
 version = "0.3.0"
+authors = ["Guolin Wan <glwan@iphy.ac.cn> and contributors"]
 
 [deps]
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"
@@ -13,6 +13,7 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 InvertedIndices = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
@@ -40,6 +41,7 @@ UnitfulAtomic = "a7773ee8-282e-5fa2-be4e-bd808c38a91a"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 
 [compat]
+GLMakie = "0.13.7"
 PrintFileTree = "0.2.0"
 Revise = "3.9.0"
 Statistics = "1"

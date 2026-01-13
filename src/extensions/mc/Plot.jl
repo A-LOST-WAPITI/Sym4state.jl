@@ -27,8 +27,8 @@ function plot(
     @assert target_y_idx ⊆ 1:n_y
 
     base_point_vec = [
-        cell_mat * [i - 1, j - 1] # i for y while j for x
-        for i in target_x_idx for j in target_y_idx
+        cell_mat * [j - 1, i - 1] # i for y while j for x
+        for i in target_y_idx for j in target_x_idx
     ]
     cart_coords_pos_mat = cell_mat * frac_coords_pos_mat
 

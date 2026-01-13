@@ -676,8 +676,9 @@ function get_all_interact_coeff_under_sym(
             coeff_ref.pair_vec
         )
 
-        # PBC introduced
-        pbc_flag = !isapprox(coeff_ref.op.trans_vec, zeros(3); atol=1e-5)
+        # is center and target switched? in that case only translation is needed
+        # to connect two pair
+        pbc_flag = !isapprox(coeff_ref.op.trans_vec, zeros(3); atol=1e-5) && isapprox(coeff_ref.op.rot_mat, I; atol=1e-5)
         coeff_mat_now = pbc_flag ? permutedims(coeff_ref.op * coeff_mat) : coeff_ref.op * coeff_mat
 
         push!(
